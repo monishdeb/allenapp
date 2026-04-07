@@ -1,0 +1,44 @@
+diff --git a/lib/screens/acls6.dart b/lib/screens/acls6.dart
+index f684b80..ec60d85 100644
+--- a/lib/screens/acls6.dart
++++ b/lib/screens/acls6.dart
+@@ -72,7 +72,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
+         }
+       }
+       else {
+-        if ((item['activity_id'] ?? '').endsWith(' 1')) {
++        if ((item['activity_id']?.toString() ?? '').endsWith(' 1')) {
+           filteredItems.add(item);
+         }
+       }
+@@ -147,7 +147,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
+                   children: [
+                     // upper part of the screen, ACLS section, displays taxonomy and content type ACLS-6
+                     ...terms.map((term) {
+-                      final termId = term['id'].toString();
++                      final termId = term['id'];
+                       return FutureBuilder<QueryResult>(
+                          future: client.query(QueryOptions(
+                            document: gql(getNodeACLS),
+@@ -156,7 +156,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
+                          builder: (context, nodeSnapshot) {
+                            if (nodeSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+-                             return SizedBox.shrink();
++                             return Center(child: CircularProgressIndicator());
+                            }
+                            if (nodeSnapshot.hasError ||
+                              nodeSnapshot.data?.hasException == true) {
+@@ -257,7 +257,11 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
+                   children: [
+                     // upper part of the screen, ACLS section, displays taxonomy and content type ACLS-6
+                     ...terms.map((term) {
+-                      final termId = term['id'].toString();
++                      if (term['id'] == null) {
++                        return SizedBox.shrink();
++                      }
++                      print(term);
++                      final termId = term['id'];
+                       return FutureBuilder(
+                         future: Offline().getNodesByTaxonomyId(
+                           termId.toString(), widget.locale, 'acls_6', db),
