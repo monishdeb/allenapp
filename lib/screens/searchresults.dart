@@ -4,10 +4,14 @@ import 'package:footer/footer_view.dart';
 import 'detailscreen.dart';
 import 'cf.dart';
 import 'aclsdetails.dart';
-import '../services/notes.dart';
+import '../services/Notes.dart';
+import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
+import '../services/auth.dart';
 
 // displays the results of search and allows user to press one of the results
-class SearchResultsScreen extends StatelessWidget {
+class SearchResultsScreen extends StatefulWidget {
   final List<Map<String, dynamic>> searchResults;
   final bool isEnglishUS;
   final String locale;
@@ -16,16 +20,51 @@ class SearchResultsScreen extends StatelessWidget {
   SearchResultsScreen({required this.searchResults, required this.isEnglishUS, required this.locale, required this.isOffline});
 
   @override
+  _SearchResultsScreenState createState() => _SearchResultsScreenState();
+}
+
+class _SearchResultsScreenState extends State<SearchResultsScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool isAppOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    isAppOffline = widget.isOffline;
+  }
+
+  void _onChangeOffline(bool? isOffline) async {
+    await setOfflineStatus(isOffline ?? false, true);
+    await setOfflineDate(DateTime.now().millisecondsSinceEpoch);
+    setState(() {
+      isAppOffline = isOffline ?? false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    var menu = Menu(
+      scaffoldKey: _scaffoldKey,
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+      onOfflineChange: _onChangeOffline,
+    );
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+      key: _scaffoldKey,
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
-      body: FooterView(footer: AllenAppFooter(locale: locale, isEnglishUS: isEnglishUS),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
+      endDrawer: menu,
+      body: FooterView(footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
       children: [
         Container(
           color: Colors.grey[800],
@@ -43,9 +82,9 @@ class SearchResultsScreen extends StatelessWidget {
           shrinkWrap: true,
           scrollDirection: Axis.vertical,
           physics: ScrollPhysics(),
-          itemCount: searchResults.length,
+          itemCount: widget.searchResults.length,
           itemBuilder: (context, index) {
-            final result = searchResults[index];
+            final result = widget.searchResults[index];
             return Container(
               child: ListTile(
                 contentPadding: EdgeInsets.all(16),
@@ -62,9 +101,9 @@ class SearchResultsScreen extends StatelessWidget {
                         builder: (context) =>
                             TaxonomyDetailScreen(
                               id: result['id'],
-                              isEnglishUS: isEnglishUS,
-                              locale: locale,
-                              isOffline: isOffline,
+                              isEnglishUS: widget.isEnglishUS,
+                              locale: widget.locale,
+                              isOffline: isAppOffline,
                             ),
                       ),
                     );
@@ -72,11 +111,11 @@ class SearchResultsScreen extends StatelessWidget {
                   else if (result['node_type'] == 'conceptual_framework') {
                     Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: isEnglishUS, locale: locale, isOffline: isOffline))
+                        MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline))
                     );
                   }
                   else if (result['node_type'] == 'acls_6_activities') {
-                    fetchTargetData(context, result['id'], locale, isOffline);
+                    fetchTargetData(context, result['id'], widget.locale, isAppOffline);
                   }
                   else if (result['node_type'] == 'acls6') {
                     Navigator.push(
@@ -85,10 +124,10 @@ class SearchResultsScreen extends StatelessWidget {
                             termId: result['id'],
                             body: result['body'],
                             nodeId: result['node_id'],
-                            locale: locale,
+                            locale: widget.locale,
                             label: result['label'],
-                            isEnglishUS: isEnglishUS,
-                            isOffline: isOffline
+                            isEnglishUS: widget.isEnglishUS,
+                            isOffline: isAppOffline
                         ))
                     );
                   }

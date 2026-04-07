@@ -1,6 +1,8 @@
 import 'package:allenapp/services/Offline.dart';
 
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
@@ -63,12 +65,16 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
     var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       endDrawer: menu,
       body: FooterView(

@@ -3,6 +3,8 @@ import 'package:flutter_launcher_icons/android.dart';
 
 import '../models/footer.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:footer/footer_view.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -123,16 +125,21 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldState, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
+    var appbar = CustomAppBar(
+      scaffoldKey: _scaffoldState,
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
     );
     return Scaffold(
+      key: _scaffoldState,
       endDrawer: menu,
       appBar: appbar,
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(0),
         child: FooterView(footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),

@@ -10,6 +10,8 @@ import 'activitystart.dart';
 import 'detailscreen.dart';
 import 'acls6.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../services/Notes.dart';
@@ -227,13 +229,16 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true,
-        actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))],
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       endDrawer: menu,
       body: FooterView(

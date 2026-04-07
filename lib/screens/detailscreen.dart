@@ -12,6 +12,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_platform_alert/flutter_platform_alert.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/arrow_label.dart';
@@ -875,26 +877,12 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       leading:  IconButton(
-          icon: Icon(
-            Icons.home,
-            color: Colors.white.withOpacity(0.85),
-            size: 20,
-          ),
-          onPressed: () => Navigator.push(
-             context, MaterialPageRoute(
-                 builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
-             )
-           )
-        ),
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
+    var appbar = CustomAppBar(
+      scaffoldKey: _scaffoldKey,
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
     );
-    var drawer = null;
     if (isLoading) {
       return Scaffold(
         appBar: appbar,
@@ -1014,48 +1002,15 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
       ));
     }
     //actions.add(IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu)));
-    if (userNotes.isNotEmpty) {
-      List<Widget> tiles= [
-        const DrawerHeader(
-          decoration: BoxDecoration(color: Colors.blue),
-          child: Text('Saved Notes'),
-        ),
-      ];
-      for (var userNote in userNotes) {
-        tiles.add(Material(
-          child: ListTile(
-            title: Text((isAppOffline ? userNote['note'] : userNote['label'])),
-            onTap: () {
-              SelectWordSelectionEvent(globalPosition: (isAppOffline ? userNote['start_position'] : userNote['start']));
-              FlutterPlatformAlert.showAlert(
-                windowTitle: 'Saved Note',
-                text: (isAppOffline ? userNote['note'] : userNote['label']),
-              );
-            }
-          )
-        ));
-      }
-      tiles.add(Material(
-        child: ListTile(
-          title: Text('Close Drawer'),
-          onTap: () {
-            Navigator.pop(context);
-
-          },
-        )
-      ));
-      drawer = Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-            children: tiles,
-        )
-      );
-    }
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: menu,
       appBar: appbar,
-      drawer: drawer,
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
       body: FooterView(
         flex: 1,
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),

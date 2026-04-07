@@ -1,116 +1,149 @@
-/* Menu is a drawer that is used to be shared across all screens and is a "end drawer"
+/* Menu is a settings drawer used as "end drawer" across all screens.
  */
 import 'package:flutter/material.dart';
-import '../screens/language.dart';
-import '../screens/search.dart';
-import '../screens/Notes.dart';
-import '../services/Offline.dart';
 import '../services/auth.dart';
-import '../services/Offline.dart';
 
-class Menu extends StatelessWidget {
+class Menu extends StatefulWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
   final String locale;
   final bool isEnglishUS;
   final bool isOffline;
   final void Function(bool?) onOfflineChange;
 
-  const Menu({required this.scaffoldKey, required this.locale, required this.isEnglishUS, required this.isOffline, required this.onOfflineChange});
+  const Menu({
+    Key? key,
+    required this.scaffoldKey,
+    required this.locale,
+    required this.isEnglishUS,
+    required this.isOffline,
+    required this.onOfflineChange,
+  }) : super(key: key);
 
   void openEndDrawer() {
     scaffoldKey.currentState!.openEndDrawer();
   }
 
-  void _closeEndDrawer(context) {
+  @override
+  _MenuState createState() => _MenuState();
+}
+
+class _MenuState extends State<Menu> {
+  late bool _isEnglishUS;
+
+  @override
+  void initState() {
+    super.initState();
+    _isEnglishUS = widget.isEnglishUS;
+  }
+
+  void _closeDrawer() {
     Navigator.of(context).pop();
+  }
+
+  void _logout() {
+    logout().then((_) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isAppOffline = isOffline;
     return Drawer(
-    child: Container(
-      color: Colors.white,
-      child: ListView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            children: [
-              CustomSearchBar(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isAppOffline,
+          Container(
+            color: Colors.red[700],
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
+            child: const Text(
+              'Settings',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
               ),
-              SizedBox(height: 40),
-              Text('Allen App Settings'),
-              SizedBox(height: 40),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NotesPage(locale: locale, isOffline: isAppOffline,),
-                  )
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                // Log out
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Log out', style: TextStyle(fontSize: 16)),
+                  onTap: _logout,
                 ),
-                child: Row(children: [
-                  SizedBox(width: 20),
-                  Text('Saved Notes', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 10),
-                  Icon(
-                    Icons.notes,
-                    size: 20.0,
+                const Divider(height: 1),
+                // Language selection
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text(
+                    'Language',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ])
-              ),
-              SizedBox(height: 40),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LanguageSelectionPage(selectedLanguage: locale, isOffline: isAppOffline),
-                  )
                 ),
-                child: Row(children: [
-                  SizedBox(width: 20),
-                  Text('Change Language', style: TextStyle(fontSize: 16)),
-                  SizedBox(width: 10),
-                  Icon(
-                    Icons.arrow_forward_ios_outlined,
-                    size: 20.0,
-                  ),
-                ])
-              ),
-              SizedBox(height: 20),
-              Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: CheckboxListTile(
-                    value: isAppOffline,
-                    title: Text('Is App in Offline Mode?'),
-                    onChanged: (bool? value) async {
-                      onOfflineChange(value);
-                      _closeEndDrawer(context);
-                    }
-                  )
-              ),
-              SizedBox(height: 20),
-              Text('App Version: 1.0.0'),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.zero
-                  ),
-                  backgroundColor: Colors.grey[800],
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(40, 40), //////// HERE
+                RadioListTile<bool>(
+                  title: const Text('English (US)'),
+                  value: true,
+                  groupValue: _isEnglishUS,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _isEnglishUS = value ?? true;
+                    });
+                  },
                 ),
-                onPressed: () => {_closeEndDrawer(context)},
-                child: Text('Close Menu',
-                  style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-                )
-              )
-            ],
-          )
+                RadioListTile<bool>(
+                  title: const Text('English (UK)'),
+                  value: false,
+                  groupValue: _isEnglishUS,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _isEnglishUS = !(value ?? false);
+                    });
+                  },
+                ),
+                const Divider(height: 1),
+                // Font Size
+                ListTile(
+                  leading: const Icon(Icons.text_fields),
+                  title: const Text('Font Size', style: TextStyle(fontSize: 16)),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                // App Status
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('App Status', style: TextStyle(fontSize: 16)),
+                  subtitle: const Text('Version: 1.0.0'),
+                  onTap: () {},
+                ),
+                const Divider(height: 1),
+                // Offline mode toggle
+                SwitchListTile(
+                  secondary: const Icon(Icons.wifi_off),
+                  title: const Text(
+                    'Offline Mode',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  value: widget.isOffline,
+                  onChanged: (bool value) async {
+                    widget.onOfflineChange(value);
+                    _closeDrawer();
+                  },
+                ),
+                const Divider(height: 1),
+              ],
+            ),
+          ),
         ],
-      )
-    )
+      ),
     );
   }
 }
