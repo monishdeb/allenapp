@@ -11,7 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_platform_alert/flutter_platform_alert.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
-import '../models/menu.dart';
+import '../widgets/custom_app_bar.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/arrow_label.dart';
@@ -874,37 +874,34 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       leading:  IconButton(
-          icon: Icon(
-            Icons.home,
-            color: Colors.white.withOpacity(0.85),
-            size: 20,
-          ),
-          onPressed: () => Navigator.push(
-             context, MaterialPageRoute(
-                 builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
-             )
-           )
-        ),
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
+    var appbar = CustomAppBar(
+      scaffoldKey: _scaffoldKey,
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+      onOfflineChange: _onChangeOffline,
+    );
+    var settingsDrawer = SettingsDrawer(
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+      onOfflineChange: _onChangeOffline,
     );
     var drawer = null;
     if (isLoading) {
       return Scaffold(
+        key: _scaffoldKey,
         appBar: appbar,
+        endDrawer: settingsDrawer,
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (contentNodes.isEmpty && childTermContent.isEmpty) {
       return Scaffold(
+        key: _scaffoldKey,
         appBar: appbar,
+        endDrawer: settingsDrawer,
         body: SizedBox.shrink(),
       );
     }
@@ -1053,7 +1050,7 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
     }
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: menu,
+      endDrawer: settingsDrawer,
       appBar: appbar,
       drawer: drawer,
       body: FooterView(

@@ -2,7 +2,7 @@ import 'package:allenapp/services/Offline.dart';
 import 'package:flutter_launcher_icons/android.dart';
 
 import '../models/footer.dart';
-import '../models/menu.dart';
+import '../widgets/custom_app_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:footer/footer_view.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -122,17 +122,21 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldState, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
-    );
     return Scaffold(
-      endDrawer: menu,
-      appBar: appbar,
+      key: _scaffoldState,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldState,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(0),
         child: FooterView(footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),

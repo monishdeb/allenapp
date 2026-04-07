@@ -3,7 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
 import '../models/terms.dart';
 import 'detailscreen.dart';
-import '../models/menu.dart';
+import '../widgets/custom_app_bar.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
@@ -222,23 +222,24 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     if (isLoading) {
       return loadingScreen();
     }
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu)),
-        ]
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
       ),
-      endDrawer: menu,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
         flex: 1,
