@@ -1,6 +1,7 @@
 import 'package:allenapp/services/Offline.dart';
 
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
@@ -74,6 +75,11 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
         locale: widget.locale,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       body: FooterView(
        flex: 1,

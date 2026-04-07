@@ -10,6 +10,7 @@ import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 import '../models/footer.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../screens/detailscreen.dart';
 import '../services/Notes.dart';
@@ -176,6 +177,11 @@ class _NotesPageState extends State<NotesPage> {
         isEnglishUS: (widget.locale == 'EN_US'),
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: (widget.locale == 'EN_US'),
+        isOffline: isAppOffline,
       ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN_US')),

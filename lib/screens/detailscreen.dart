@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_platform_alert/flutter_platform_alert.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/arrow_label.dart';
@@ -887,12 +888,17 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
       isOffline: isAppOffline,
       onOfflineChange: _onChangeOffline,
     );
-    var drawer = null;
+    var drawer = LeftNavDrawer(
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+    );
     if (isLoading) {
       return Scaffold(
         key: _scaffoldKey,
         appBar: appbar,
         endDrawer: settingsDrawer,
+        drawer: drawer,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -902,6 +908,7 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
         key: _scaffoldKey,
         appBar: appbar,
         endDrawer: settingsDrawer,
+        drawer: drawer,
         body: SizedBox.shrink(),
       );
     }

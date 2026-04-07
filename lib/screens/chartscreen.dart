@@ -4,6 +4,7 @@ import '../services/query.dart';
 import '../models/terms.dart';
 import 'detailscreen.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
@@ -239,6 +240,11 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),

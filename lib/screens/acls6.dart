@@ -6,6 +6,7 @@ import '../services/query.dart';
 import 'aclsdetails.dart';
 import 'activitystart.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
@@ -109,6 +110,11 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,

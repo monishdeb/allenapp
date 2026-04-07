@@ -3,6 +3,7 @@ import 'package:flutter_launcher_icons/android.dart';
 
 import '../models/footer.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:footer/footer_view.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -129,6 +130,11 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldState,

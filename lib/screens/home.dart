@@ -1,6 +1,7 @@
 import 'package:allenapp/screens/loadingScreen.dart';
 
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'chartscreen.dart';
 import 'cf.dart';
@@ -66,6 +67,11 @@ class _HomePageState extends State<HomePage> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       body: new FooterView(
         footer: AllenAppFooter(isEnglishUS: widget.isEnglishUS, locale: widget.locale),

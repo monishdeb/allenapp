@@ -10,6 +10,7 @@ import 'activitystart.dart';
 import 'detailscreen.dart';
 import 'acls6.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../services/Notes.dart';
@@ -237,6 +238,11 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       body: FooterView(
        flex: 1,

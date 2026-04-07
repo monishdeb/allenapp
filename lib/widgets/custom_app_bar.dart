@@ -6,6 +6,7 @@ import '../services/auth.dart';
 /// A reusable custom AppBar that is consistent across all screens.
 ///
 /// Header actions (left to right):
+/// - Hamburger menu (☰) — always shown, opens the left drawer
 /// - Back button (←) — shown only when Navigator.canPop(context) is true
 /// - App logo (centered)
 /// - Three-dot menu (⋮) — opens PopupMenu with Saved Notes, Unread Changes, Options
@@ -39,14 +40,24 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool canPop = Navigator.canPop(context);
     return AppBar(
       automaticallyImplyLeading: false,
-      leading: Navigator.canPop(context)
-          ? IconButton(
+      leadingWidth: canPop ? 96.0 : 48.0,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => scaffoldKey.currentState?.openDrawer(),
+          ),
+          if (canPop)
+            IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
-            )
-          : null,
+            ),
+        ],
+      ),
       title: Image.asset(
         'assets/logo.png',
         height: 36,

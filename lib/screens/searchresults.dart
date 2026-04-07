@@ -6,6 +6,7 @@ import 'cf.dart';
 import 'aclsdetails.dart';
 import '../services/notes.dart';
 import '../widgets/custom_app_bar.dart';
+import '../models/left_drawer.dart';
 import '../services/auth.dart';
 
 // displays the results of search and allows user to press one of the results
@@ -55,6 +56,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
       ),
       body: FooterView(footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
       children: [
