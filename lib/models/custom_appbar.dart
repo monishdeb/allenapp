@@ -16,6 +16,27 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
+      leadingWidth: showBackButton ? 96.0 : 48.0,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: Icon(Icons.menu),
+            tooltip: 'Menu',
+            onPressed: () {
+              scaffoldKey.currentState?.openDrawer();
+            },
+          ),
+          if (showBackButton)
+            IconButton(
+              icon: Icon(Icons.arrow_back),
+              tooltip: 'Back',
+              onPressed: () {
+                Navigator.maybePop(context);
+              },
+            ),
+        ],
+      ),
       title: Text(
         'Allen App',
         style: TextStyle(
@@ -25,28 +46,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       centerTitle: true,
-      leading: IconButton(
-        icon: Icon(Icons.menu),
-        tooltip: 'Menu',
-        onPressed: () {
-          scaffoldKey.currentState?.openDrawer();
-        },
-      ),
       actions: [
-        if (showBackButton)
-          IconButton(
-            icon: Icon(Icons.arrow_back),
-            tooltip: 'Back',
-            onPressed: () {
-              Navigator.maybePop(context);
-            },
-          ),
         PopupMenuButton<String>(
           icon: Icon(Icons.more_vert),
           tooltip: 'More options',
-          onSelected: (value) {
-            // Handle popup menu selection
-          },
+          // TODO: implement popup menu actions (Options, Notes, Unread Changes)
+          onSelected: (value) {},
           itemBuilder: (BuildContext context) => [
             PopupMenuItem<String>(
               value: 'options',
