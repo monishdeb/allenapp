@@ -16,6 +16,23 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
+      leadingWidth: showBackArrow ? 96 : 48,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open navigation drawer',
+            onPressed: () => scaffoldKey.currentState?.openDrawer(),
+          ),
+          if (showBackArrow)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: 'Back',
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+        ],
+      ),
       title: Text(
         'Allen App',
         style: TextStyle(
@@ -25,18 +42,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.menu),
-        tooltip: 'Open menu',
-        onPressed: () => scaffoldKey.currentState?.openDrawer(),
-      ),
       actions: [
-        if (showBackArrow)
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
         IconButton(
           icon: const Icon(Icons.settings),
           tooltip: 'Open settings',
