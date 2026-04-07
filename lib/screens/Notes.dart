@@ -9,7 +9,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 import '../models/footer.dart';
-import '../models/menu.dart';
+import '../widgets/custom_app_bar.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../screens/detailscreen.dart';
 import '../services/Notes.dart';
@@ -162,17 +162,21 @@ class _NotesPageState extends State<NotesPage> {
     if (loading) {
       return loadingScreen();
     }
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: (widget.locale == 'EN_US'), isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Saved Notes',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: (widget.locale == 'EN_US'),
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
       ),
-      endDrawer: menu,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: (widget.locale == 'EN_US'),
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN_US')),
         flex: 1,
