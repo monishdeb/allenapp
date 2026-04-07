@@ -167,3 +167,10 @@ Future<String?> getAccessToken() async {
   }
   return token != null ? 'Bearer $token' : null;
 }
+
+Future<void> logoutUser() async {
+  await storage.delete(key: 'access_token');
+  await storage.delete(key: 'refresh_token');
+  await storage.delete(key: 'expires_in');
+  await storage.delete(key: 'user_id');
+}
