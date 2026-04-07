@@ -180,7 +180,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             tooltip: 'Back',
-            onPressed: () => Navigator.pop(context),
+            onPressed: Navigator.canPop(context) ? () => Navigator.pop(context) : null,
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
