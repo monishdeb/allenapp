@@ -4,6 +4,8 @@ import '../services/query.dart';
 import '../models/terms.dart';
 import 'detailscreen.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
@@ -228,16 +230,8 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
     }
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu)),
-        ]
-      ),
+      appBar: CustomAppBar(scaffoldKey: _scaffoldKey, showBackArrow: true),
+      drawer: LeftNavDrawer(locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline),
       endDrawer: menu,
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),

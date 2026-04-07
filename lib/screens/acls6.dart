@@ -6,6 +6,8 @@ import '../services/query.dart';
 import 'aclsdetails.dart';
 import 'activitystart.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
@@ -99,20 +101,14 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-         title: Text(
-           'Allen App',
-           style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-         ),
-         centerTitle: true,
-         actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))],
-    );
+    var appbar = CustomAppBar(scaffoldKey: _scaffoldKey, showBackArrow: true);
     if (isLoading) {
       return loadingScreen();
     }
     final client = GraphQLProvider.of(context).value;
     return Scaffold(
       key: _scaffoldKey,
+      drawer: LeftNavDrawer(locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline),
       endDrawer: menu,
       appBar: appbar,
       body: FooterView(

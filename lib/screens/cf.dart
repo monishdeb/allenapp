@@ -4,6 +4,8 @@ import 'package:allenapp/services/Offline.dart';
 
 import '../models/selectableText.dart';
 import '../models/footer.dart';
+import '../models/custom_appbar.dart';
+import '../models/left_drawer.dart';
 import '../services/query.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -47,16 +49,10 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
-    );
     return Scaffold(
       key: _scaffoldKey,
-      appBar: appbar,
+      appBar: CustomAppBar(scaffoldKey: _scaffoldKey, showBackArrow: true),
+      drawer: LeftNavDrawer(locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
         flex: 1,
