@@ -17,9 +17,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
     return AppBar(
       automaticallyImplyLeading: false,
-      leadingWidth: 96,
+      leadingWidth: canPop ? 96 : 48,
       leading: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -28,11 +29,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             tooltip: 'Navigation menu',
             onPressed: () => scaffoldKey.currentState?.openDrawer(),
           ),
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            tooltip: 'Back',
-            onPressed: () => Navigator.maybePop(context),
-          ),
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              tooltip: 'Back',
+              onPressed: () => Navigator.maybePop(context),
+            ),
         ],
       ),
       title: const Text(

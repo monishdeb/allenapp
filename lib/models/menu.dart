@@ -104,7 +104,7 @@ class _MenuState extends State<Menu> {
                   groupValue: _isEnglishUS,
                   onChanged: (bool? value) {
                     setState(() {
-                      _isEnglishUS = !(value ?? false);
+                      _isEnglishUS = value ?? false;
                     });
                   },
                 ),
