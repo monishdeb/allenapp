@@ -1,6 +1,7 @@
 import 'package:allenapp/screens/loadingScreen.dart';
 
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
 import 'package:flutter/material.dart';
 import 'chartscreen.dart';
 import 'cf.dart';
@@ -55,13 +56,7 @@ class _HomePageState extends State<HomePage> {
     Menu menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-            'Allen App',
-             style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
-      ),
+      appBar: CustomAppBar(scaffoldKey: _scaffoldKey),
       endDrawer: menu,
       body: new FooterView(
         footer: AllenAppFooter(isEnglishUS: widget.isEnglishUS, locale: widget.locale),

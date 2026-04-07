@@ -6,6 +6,7 @@ import '../services/query.dart';
 import 'aclsdetails.dart';
 import 'activitystart.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
@@ -99,14 +100,6 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-         title: Text(
-           'Allen App',
-           style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-         ),
-         centerTitle: true,
-         actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))],
-    );
     if (isLoading) {
       return loadingScreen();
     }
@@ -114,7 +107,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: menu,
-      appBar: appbar,
+      appBar: CustomAppBar(scaffoldKey: _scaffoldKey),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
         children: [

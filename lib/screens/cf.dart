@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../models/menu.dart';
+import '../models/custom_appbar.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 
@@ -47,16 +48,9 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
-    );
     return Scaffold(
       key: _scaffoldKey,
-      appBar: appbar,
+      appBar: CustomAppBar(scaffoldKey: _scaffoldKey),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
         flex: 1,
