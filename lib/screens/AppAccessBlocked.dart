@@ -15,7 +15,7 @@ class AppAccessBlocked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Allen App')),
+      appBar: AppBar(title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50)),
       body: Padding(
         padding: const EdgeInsets.all(0),
         child: Column(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
@@ -63,6 +64,15 @@ Future<bool?> getOfflineStatus() async {
   return bool.parse(await storage.read(key: 'isOffline') ?? 'false');
 }
 
+Future<int> getLastPinCodeRequest() async {
+  var lastRequest = await storage.read(key: 'last_pin_request') ?? DateTime.now().millisecondsSinceEpoch.toString();
+  return int.parse(lastRequest);
+}
+
+Future<void> setLastPinCodeRequest() async {
+  await storage.write(key: 'last_pin_request', value: DateTime.now().millisecondsSinceEpoch.toString());
+}
+
 Future<void> setOfflineStatus(bool offlineStatus, bool rebuildDatabase) async {
   if (offlineStatus) {
     var database = await Offline().initDatabase(rebuildDatabase);
@@ -119,12 +129,18 @@ Future<Map<String, String>?> authenticateUser(userName, password) async {
     //'redirect_uri': redirectUri,
     'username': userName,
     'password': password,
-    'scope': 'content_editor',
+    'scope': 'web_app_user',
     'grant_type': 'password',
     'client_secret': oauthClientSecret,
+  },
+  headers: {
+    'accept': 'application/json',
   });
-  print(tokenResponse);
   final token_response = jsonDecode(tokenResponse.body);
+  if ((token_response['error'] ?? '') != '') {
+    navigatorKey.currentState?.pushNamed('/', arguments: {'forceLogin': true, 'loginFailed': true});
+    return {};
+  }
   final access_token = token_response['access_token'] as String;
   final refresh_token = token_response['refresh_token'] as String;
   final expires_in = (DateTime.now().millisecondsSinceEpoch + Duration(seconds: token_response['expires_in']).inMilliseconds);
@@ -134,8 +150,6 @@ Future<Map<String, String>?> authenticateUser(userName, password) async {
 
 Future<String?> getNewToken() async {
   final refreshToken = await getRefreshToken();
-  print('refreshtoken');
-  print(refreshToken);
   final tokenResponse = await http.post(Uri.parse(tokenUrl.toString() + '?refresh'), body: {
     'client_id': oauthClientId,
     'grant_type': 'refresh_token',
@@ -143,7 +157,8 @@ Future<String?> getNewToken() async {
     'client_secret': oauthClientSecret,
   });
   var token_response = jsonDecode(tokenResponse.body);
-  if (token_response['error'] != null) {
+  if ((token_response['error'] ?? '') != '') {
+    navigatorKey.currentState?.pushNamed('/', arguments: {'forceLogin': true});
     return '';
   }
   final access_token = token_response['access_token'] as String;
@@ -167,3 +182,5 @@ Future<String?> getAccessToken() async {
   }
   return token != null ? 'Bearer $token' : null;
 }
+
+final GlobalKey<NavigatorState> navigatorKey = new GlobalKey<NavigatorState>();

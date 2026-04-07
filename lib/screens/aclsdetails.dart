@@ -6,7 +6,6 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../models/footer.dart';
-import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../Env.dart';
@@ -63,17 +62,14 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
     var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
       ),
       endDrawer: menu,
-      body: FooterView(
-       flex: 1,
-       footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
+      body: SingleChildScrollView(
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             color: Colors.grey[800],
@@ -85,184 +81,198 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          isAppOffline ? (
-            FutureBuilder(
-              future: Offline().getChildTaxonomy(widget.termId, 'acls_6', db),
-              builder: (context, childSnapshot) {
-                if (childSnapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (childSnapshot.hasError) {
-                   return Center(child: Text('Error fetching child terms'));
-                }
-                final childTerms = childSnapshot.data ?? [];
-                return ListView(
-                  shrinkWrap: true,
-                  scrollDirection: Axis.vertical,
-                  physics: ScrollPhysics(),
-                  padding: EdgeInsets.all(16),
-                  children: [
-                    SelectableAllenText(text: parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
-                    SizedBox(height: 32),
-                    if (childTerms.isNotEmpty) SizedBox(height: 10),
-                      ...childTerms.map<Widget>((term) {
-                        final childId = term['id'].toString();
-                        return FutureBuilder(
-                           future: Offline().getNodesByTaxonomyId(childId, widget.locale, 'acls_6', db),
-                           builder: (context, snapshot) {
-                             if (snapshot.connectionState ==
-                               ConnectionState.waiting) {
-                               return SizedBox.shrink();
-                             }
-                             if (snapshot.hasError) {
-                               return SizedBox.shrink();
-                             }
-                             final node = snapshot.data?.firstOrNull;
-                             if (node == null) { return SizedBox.shrink(); }
-                             final childLabel = (node['label'] == '' ? 'No label' : node['label']);
-                             final childBody = (node['body'] == '' ? 'No body' : node['body']);
-                             final contentType = node['content_type'];
-                             // displays child content in new AclsDetailsScreen (recursive)
-                             if (contentType == 'P') {
-                               return ListTile(
-                                 title: Text(childLabel),
-                                 leading: Icon(Icons.arrow_forward_ios_outlined),
-                                 onTap: () {
-                                   Navigator.push(
-                                     context,
-                                     MaterialPageRoute(
-                                       builder: (_) => AclsDetailsScreen(
-                                         nodeId: node['id'].toString() ?? '',
-                                         termId: childId,
-                                         label: childLabel,
-                                         body: childBody,
-                                         locale: widget.locale,
-                                         isEnglishUS: widget.isEnglishUS,
-                                         isOffline: isAppOffline,
-                                       ),
-                                     ),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Container(
+              color: Colors.white,
+              child: isAppOffline ? (
+                FutureBuilder(
+                  future: Offline().getChildTaxonomy(widget.termId, 'acls_6', db),
+                  builder: (context, childSnapshot) {
+                    if (childSnapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    if (childSnapshot.hasError) {
+                       return Center(child: Text('Error fetching child terms'));
+                    }
+                    final childTerms = childSnapshot.data ?? [];
+                    return ListView(
+                      shrinkWrap: true,
+                      scrollDirection: Axis.vertical,
+                      physics: ScrollPhysics(),
+                      padding: EdgeInsets.all(16),
+                      children: [
+                        SelectableAllenText(text: parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
+                        SizedBox(height: 32),
+                        if (childTerms.isNotEmpty) SizedBox(height: 10),
+                          ...childTerms.map<Widget>((term) {
+                            final childId = term['id'].toString();
+                            return FutureBuilder(
+                               future: Offline().getNodesByTaxonomyId(childId, widget.locale, 'acls_6', db),
+                               builder: (context, snapshot) {
+                                 if (snapshot.connectionState ==
+                                   ConnectionState.waiting) {
+                                   return SizedBox.shrink();
+                                 }
+                                 if (snapshot.hasError) {
+                                   return SizedBox.shrink();
+                                 }
+                                 final node = snapshot.data?.firstOrNull;
+                                 if (node == null) { return SizedBox.shrink(); }
+                                 final childLabel = (node['label'] == '' ? 'No label' : node['label']);
+                                 final childBody = (node['body'] == '' ? 'No body' : node['body']);
+                                 final contentType = node['content_type'];
+                                 // displays child content in new AclsDetailsScreen (recursive)
+                                 if (contentType == 'P') {
+                                   return ListTile(
+                                     contentPadding: EdgeInsets.only(left: 8.0),
+                                     title: Text(childLabel, style: TextStyle(fontSize: 18)),
+                                     leading: Icon(Icons.arrow_forward_ios_outlined),
+                                     onTap: () {
+                                       Navigator.push(
+                                         context,
+                                         MaterialPageRoute(
+                                           builder: (_) => AclsDetailsScreen(
+                                             nodeId: node['id'].toString() ?? '',
+                                             termId: childId,
+                                             label: childLabel,
+                                             body: childBody,
+                                             locale: widget.locale,
+                                             isEnglishUS: widget.isEnglishUS,
+                                             isOffline: isAppOffline,
+                                           ),
+                                         ),
+                                       );
+                                     },
                                    );
-                                 },
-                               );
-                             }
-                             // else displays child content as accordion
-                             else if (contentType == 'A') {
-                               return ExpansionTile(
-                                 title: Text(childLabel),
-                                 children: [
-                                   Padding(
-                                     padding: const EdgeInsets.all(8.0),
-                                     child: SelectableAllenText(text: childBody, notes: [], currentNodeId: node['id'].toString() ?? '', isOffline: isAppOffline)
-                                   ),
-                                 ],
-                               );
-                             } else {
-                               return SizedBox.shrink();
-                             }
-                           }
-                        );
-                      }).toList()
-                  ],
-                );
-              }
-            )
-          ) : (
-            FutureBuilder<QueryResult>(
-            future: client.query(QueryOptions(
-              document: gql(getChildTermsACLS), // queries for child terms and displays underneath content for current term
-              variables: {
-                'parentIds': [widget.termId]
-              },
-            )),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError || snapshot.data?.hasException == true) {
-                return Center(child: Text('Error fetching child terms'));
-              }
-              final childTerms = snapshot.data?.data?['entityQuery']['items'] ?? [];
+                                 }
+                                 // else displays child content as accordion
+                                 else if (contentType == 'A') {
+                                   return ExpansionTile(
+                                     tilePadding: EdgeInsets.only(left: 8.0),
+                                     title: Text(childLabel, style: TextStyle(fontSize: 18)),
+                                     children: [
+                                       Padding(
+                                         padding: const EdgeInsets.all(8.0),
+                                         child: SelectableAllenText(text: childBody, notes: [], currentNodeId: node['id'].toString() ?? '', isOffline: isAppOffline)
+                                       ),
+                                     ],
+                                   );
+                                 } else {
+                                   return SizedBox.shrink();
+                                 }
+                               }
+                            );
+                          }).toList()
+                      ],
+                    );
+                  }
+                )
+              ) : (
+                FutureBuilder<QueryResult>(
+                future: client.query(QueryOptions(
+                  document: gql(getChildTermsACLS), // queries for child terms and displays underneath content for current term
+                  variables: {
+                    'parentIds': [widget.termId]
+                  },
+                )),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError || snapshot.data?.hasException == true) {
+                    return Center(child: Text('Error fetching child terms'));
+                  }
+                  final childTerms = snapshot.data?.data?['entityQuery']['items'] ?? [];
 
-              return ListView(
-                shrinkWrap: true,
-                scrollDirection: Axis.vertical,
-                physics: ScrollPhysics(),
-                padding: EdgeInsets.all(16),
-                children: [
-                  SelectableAllenText(text: parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
-                  SizedBox(height: 32),
-                  if (childTerms.isNotEmpty) SizedBox(height: 10),
-                    ...childTerms.map<Widget>((term) {
-                      final childId = term['id'];
-                      return FutureBuilder<QueryResult>(
-                        future: client.query(QueryOptions(
-                          document: gql(getNodeACLS), // queries for the content associated with the current ACLS-6 taxonomy term
-                          variables: {'termId': childId},
-                        )),
-                        builder: (context, childSnapshot) {
-                          if (childSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                            return SizedBox.shrink();
-                          }
-                          if (childSnapshot.hasError ||
-                            childSnapshot.data?.hasException == true) {
-                            return SizedBox.shrink();
-                          }
-                          final node = (childSnapshot.data?.data?['entityQuery']
-                            ['items'] as List?)?.firstOrNull;
-                          if (node == null) { return SizedBox.shrink(); }
+                  return ListView(
+                    shrinkWrap: true,
+                    scrollDirection: Axis.vertical,
+                    physics: ScrollPhysics(),
+                    padding: EdgeInsets.all(8),
+                    children: [
+                      SelectableAllenText(text: parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
+                      if (childTerms.isNotEmpty) SizedBox(height: 10),
+                        ...childTerms.map<Widget>((term) {
+                          final childId = term['id'];
+                          return FutureBuilder<QueryResult>(
+                            future: client.query(QueryOptions(
+                              document: gql(getNodeACLS), // queries for the content associated with the current ACLS-6 taxonomy term
+                              variables: {'termId': childId},
+                            )),
+                            builder: (context, childSnapshot) {
+                              if (childSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                                return SizedBox.shrink();
+                              }
+                              if (childSnapshot.hasError ||
+                                childSnapshot.data?.hasException == true) {
+                                return SizedBox.shrink();
+                              }
+                              final node = (childSnapshot.data?.data?['entityQuery']
+                                ['items'] as List?)?.firstOrNull;
+                              if (node == null) { return SizedBox.shrink(); }
 
-                          final childLabel = node['label'] ?? 'No label';
-                          final childBody =
-                              node['bodyRawField']?['getString'].replaceAll(', full_html', '')  ?? 'No body';
-                          final contentType =
-                            node['fieldContentTypeRawField']?['getString'].toString().toUpperCase();
-                          // displays child content in new AclsDetailsScreen (recursive)
-                          if (contentType == 'P') {
-                            return ListTile(
-                              title: Text(childLabel),
-                              leading: Icon(Icons.arrow_forward_ios_outlined),
-                                onTap: () {
-                                  Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AclsDetailsScreen(
-                                      nodeId: node['id'] ?? '',
-                                      termId: childId,
-                                      label: childLabel,
-                                      body: childBody,
-                                      locale: widget.locale,
-                                      isEnglishUS: widget.isEnglishUS,
-                                      isOffline: isAppOffline,
-                                    ),
-                                  ),
+                              final childLabel = node['label'] ?? 'No label';
+                              final childBody =
+                                  node['bodyRawField']?['getString'].replaceAll(', full_html', '')  ?? 'No body';
+                              final contentType =
+                                node['fieldContentTypeRawField']?['getString'].toString().toUpperCase();
+                              // displays child content in new AclsDetailsScreen (recursive)
+                              if (contentType == 'P') {
+                                return ListTile(
+                                  contentPadding: EdgeInsets.only(left: 8.0),
+                                  title: Text(childLabel, style: TextStyle(fontSize: 18)),
+                                  leading: Icon(Icons.arrow_forward_ios_outlined),
+                                    onTap: () {
+                                      Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AclsDetailsScreen(
+                                          nodeId: node['id'] ?? '',
+                                          termId: childId,
+                                          label: childLabel,
+                                          body: childBody,
+                                          locale: widget.locale,
+                                          isEnglishUS: widget.isEnglishUS,
+                                          isOffline: isAppOffline,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 );
-                              },
-                            );
-                          }
-                          // else displays child content as accordion
-                          else if (contentType == 'A') {
-                            return ExpansionTile(
-                              title: Text(childLabel),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: SelectableAllenText(text: childBody, notes: [], currentNodeId: node['id'] ?? '', isOffline: isAppOffline)
-                                ),
-                              ],
-                            );
-                          } else {
-                            return SizedBox.shrink();
-                          }
-                        },
-                      );
-                    }).toList(),
-                ],
-             );
-            },
+                              }
+                              // else displays child content as accordion
+                              else if (contentType == 'A') {
+                                return ExpansionTile(
+                                  tilePadding: EdgeInsets.only(left: 8.0),
+                                  title: Text(childLabel, style: TextStyle(fontSize: 18)),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: SelectableAllenText(text: childBody, notes: [], currentNodeId: node['id'] ?? '', isOffline: isAppOffline)
+                                    ),
+                                  ],
+                                );
+                              } else {
+                                return SizedBox.shrink();
+                              }
+                            },
+                          );
+                        }).toList(),
+                    ],
+                 );
+                },
+              )
+            ),
           )
-        )
-      ]),
+        ),
+        // Footer now scrolls with content (no whitespace EVER)
+        AllenAppFooter(
+          locale: widget.locale,
+          isEnglishUS: widget.isEnglishUS,
+        ),
+      ])),
     );
   }
 }

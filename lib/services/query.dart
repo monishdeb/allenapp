@@ -92,16 +92,16 @@ const String getNodesByTerm = r"""
     entityQuery(
       entityType: NODE
       limit: 1000
-      filter: { 
+      filter: {
         conditions: [
           { field: "field_allen_cognitive_level.target_id", value: [$termId] }
-        ] 
+        ]
       }
     ) {
       items {
         label
         id
-        ... on NodeWebApp {
+        ... on NodeAllenCognitiveLevels {
           fieldAllenCognitiveLevelRawField {
             getString
           }
@@ -113,7 +113,7 @@ const String getNodesByTerm = r"""
               getString
             }
             bodyRawField {
-              getString 
+              getString
             }
           }
         }
@@ -129,7 +129,7 @@ const String getNodesByTerm = r"""
               getString
             }
             bodyRawField {
-              getString 
+              getString
             }
           }
         }
@@ -143,11 +143,11 @@ query getParentCFTerms {
   entityQuery(
     entityType: TAXONOMY_TERM
     limit: 1000
-    filter: { 
-      conditions: [ 
-        { field: "vid.target_id", value: "conceptual_framework" } 
+    filter: {
+      conditions: [
+        { field: "vid.target_id", value: "conceptual_framework" }
         { field: "parent.target_id", value: "0" }
-      ] 
+      ]
     }
   ) {
     items {
@@ -181,10 +181,10 @@ const String getCFNodesByTerm = r"""
     entityQuery(
       entityType: NODE
       limit: 1000
-      filter: { 
+      filter: {
         conditions: [
           { field: "field_conceptual_framework.target_id", value: [$termId] }
-        ] 
+        ]
       }
     ) {
       items {
@@ -196,11 +196,11 @@ const String getCFNodesByTerm = r"""
               getString
             }
             bodyRawField {
-              getString 
+              getString
             }
           }
         }
-      }  
+      }
     }
   }
 """;
@@ -227,6 +227,7 @@ query getSearchResults($searchTerm: String!, $langcode: Langcode!) {
             { field: "type.target_id", operator: IN, value: ["web_app"] }
             { field: "type.target_id", operator: IN, value: ["acls_6_activities"] }
             { field: "type.target_id", operator: IN, value: ["acls6"] }
+            { field: "type.target_id", operator: IN, value: ["allen_cognitive_levels"] }
           ]
         }
       ]
@@ -236,7 +237,7 @@ query getSearchResults($searchTerm: String!, $langcode: Langcode!) {
       label
       id
       entityBundle
-      ... on NodeWebApp {
+      ... on NodeAllenCognitiveLevels {
         fieldAllenCognitiveLevelRawField {
           getString
         }
@@ -278,7 +279,7 @@ query getSearchResults($searchTerm: String!, $langcode: Langcode!) {
           bodyRawField {
             getString
           }
-        }        
+        }
       }
     }
   }
@@ -347,10 +348,10 @@ query GetNodesACLS ($termId: String!) {
     entityQuery(
       entityType: NODE
       limit: 1000
-      filter: { 
+      filter: {
         conditions: [
           { field: "field_acls_6.target_id", value: [$termId] }
-        ] 
+        ]
       }
     ) {
       items {
@@ -374,10 +375,10 @@ const String getActivities = r"""
     entityQuery(
       entityType: NODE
       limit: 1000
-      filter: { 
+      filter: {
         conditions: [
           { field: "type.target_id", value: "acls_6_activities" }
-        ] 
+        ]
       }
     ) {
       items {
@@ -432,11 +433,11 @@ query GetActivities($id: [String], $langcode: Langcode!) {
   entityQuery(
     entityType: NODE
     limit: 1000
-    filter: { 
+    filter: {
       conditions: [
         { field: "type.target_id", value: "acls_6_activities" }
         { field: "nid.value", value: $id }
-      ] 
+      ]
     }
   ) {
     items {
@@ -527,7 +528,7 @@ const getNotesForNode = r"""
         }
       }
     }
-  }  
+  }
 """;
 
 const getUserNotes = r"""
@@ -589,11 +590,11 @@ const getSinglePage = r"""
     entityQuery(
       entityType: NODE
       limit: 1000
-      filter: { 
+      filter: {
         conditions: [
           { field: "type.target_id", value: "allen_app_information" }
           { field: "title", value: $nodeTitle }
-       ] 
+       ]
       }
     ) {
       items {
@@ -619,8 +620,8 @@ const getNode = r"""
   ) {
     items {
       id
-      ... on NodeWebApp {
-    
+      ... on NodeAllenCognitiveLevels {
+
         fieldAllenCognitiveLevelRawField {
           getString
         }

@@ -160,21 +160,20 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return loadingScreen();
+      return loadingScreen(isEnglishUS: (widget.locale == 'EN'), locale: widget.locale);
     }
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: (widget.locale == 'EN_US'), isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
+    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: (widget.locale == 'EN'), isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
         title: Text(
           'Saved Notes',
           style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+        )
       ),
       endDrawer: menu,
       body: FooterView(
-        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN_US')),
+        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN')),
         flex: 1,
         children: [
           Container(
@@ -223,12 +222,12 @@ class _NotesPageState extends State<NotesPage> {
                                                   isOffline: isAppOffline
                                               ),
                                             ),
-                                          ); 
+                                          );
                                         }
                                         else if (note['nodeType'] == 'conceptual_framework' || note['node_type'] == 'conceptual_framework') {
                                           Navigator.push(
                                               context,
-                                              MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: (widget.locale == 'en_US'), locale: widget.locale, isOffline: isAppOffline))
+                                              MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: (widget.locale == 'en'), locale: widget.locale, isOffline: isAppOffline))
                                           );
                                         }
                                         else if (note['nodeType'] == 'acls_6_activities' || note['node_type'] == 'acls_6_activities') {

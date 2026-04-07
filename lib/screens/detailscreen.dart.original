@@ -1,0 +1,1232 @@
+import 'package:allenapp/services/Offline.dart';
+
+import '../services/auth.dart';
+import 'package:flutter/material.dart';
+import '../screens/home.dart';
+import 'package:flutter/rendering.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import '../services/query.dart';
+import '../models/highlights.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_platform_alert/flutter_platform_alert.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import '../models/menu.dart';
+import '../models/footer.dart';
+import 'package:footer/footer_view.dart';
+import '../models/arrow_label.dart';
+import '../models/selectableText.dart';
+import '../Env.dart';
+import 'loadingScreen.dart';
+
+// screen renders when user selects one of the Allen Cognitive Level terms on chart screen
+class TaxonomyDetailScreen extends StatefulWidget {
+  final String id;
+  final bool isEnglishUS;
+  final String locale;
+  final bool isOffline;
+
+  const TaxonomyDetailScreen(
+      {Key? key, required this.id, required this.isEnglishUS, required this.locale, required this.isOffline})
+      : super(key: key);
+
+  @override
+  _TaxonomyDetailScreenState createState() => _TaxonomyDetailScreenState();
+}
+
+class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
+  bool isLoading = true;
+  List<Map<String, dynamic>> childTermContent = [];
+  List<Map<String, dynamic>> contentNodes = [];
+  List<Map<String, dynamic>> modes = [];
+  List<Map<String, dynamic>> userNotes = [];
+  String? previousNode;
+  String previousNodeLabel = '';
+  String childTerm = '';
+  String? parentTerm;
+  String childLabel = '';
+  String parentLabel = '';
+  String? rootTerm;
+  String rootLabel = '';
+  String currentTitle = '';
+  String originalTitle = '';
+  String selectedText = '';
+  String? currentNodeId;
+  bool isAppOffline = false;
+  String labelKey = 'label';
+  final TextEditingController _controller = TextEditingController();
+  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      BrowserContextMenu.disableContextMenu();
+    }
+    isAppOffline = widget.isOffline;
+    if (isAppOffline) {
+      labelKey = 'title';
+    }
+    fetchTermContent(widget.id).then((result) {
+      fetchNavigationTerms(widget.id).then((res) {
+        fetchChildTermsAndContent(widget.id).then((child) {
+          fetchNotes();
+        });
+      });
+    });
+  }
+
+  void _onChangeOffline(bool? isOffline) async {
+    setState(() {
+      isLoading = true;
+    });
+    await setOfflineStatus(isOffline ?? false, true);
+    await setOfflineDate(DateTime.now().millisecondsSinceEpoch).then((result) {
+      setState(() {
+        isAppOffline = isOffline ?? false;
+        labelKey = !(isOffline ?? false) ? 'label' : 'title';
+      });
+      fetchTermContent(widget.id).then((result) {
+        fetchNavigationTerms(widget.id).then((res) {
+          fetchChildTermsAndContent(widget.id).then((child) {
+            fetchNotes();
+          });
+        });
+      });
+    });
+  }
+
+  Future<void> fetchNavigationTerms(String termId) async {
+    final GraphQLClient graphQLClient = client.value;
+    String termTitle = '';
+    if (isAppOffline)  {
+      var currentTermResult = await Offline().getACLTaxonomy(null, termId, db);
+      termTitle = currentTermResult[0][labelKey] ?? '';
+    }
+    else {
+      final currentTaxonomy = await graphQLClient.query(
+          QueryOptions(
+              document: gql(getTaxonomyTerm), variables: {'termId': termId})
+      );
+      termTitle =
+          currentTaxonomy.data?['entityQuery']['items'][0][labelKey] ?? '';
+    }
+    var currentTermId = termId;
+    originalTitle = fixLabel(termTitle);
+    // We are on a sub page of an H or L e.g. 4 H 1 or 3 L 2 so we need to treat the same as on the H for navigation.
+    // Or we are on a sub page of the lowest e.g. 4.6
+    if (isSubPage(fixLabel(termTitle))) {
+      if (!isAppOffline) {
+        final getRealCurrentTermId = await graphQLClient.query(
+            QueryOptions(document: gql(getParentID), variables: {'termId': termId})
+        );
+        currentTermId = getRealCurrentTermId.data?['entityQuery']['items'][0]['parentRawField']['getString'];
+        if ('.'.allMatches(fixLabel(termTitle)).length >= 3) {
+          final getPreviousCurrentTermId = await graphQLClient.query(
+              QueryOptions(document: gql(getParentID), variables: {'termId': currentTermId})
+          );
+          currentTermId = getPreviousCurrentTermId.data?['entityQuery']['items'][0]['parentRawField']['getString'] ?? currentTermId;
+        }
+      }
+      else {
+        var parentTermResult = await Offline().getParentTaxonomyTerm(termId, db);
+        currentTermId = parentTermResult[0]['id'].toString();
+        if ('.'.allMatches(fixLabel(termTitle)).length >= 3) {
+          var previousParentTermResult = await Offline().getParentTaxonomyTerm(currentTermId, db);
+          currentTermId = (previousParentTermResult[0]['id'] ?? currentTermId).toString();
+        }
+      }
+    }
+    String nextChildTermId = '';
+    String? previousParentId;
+    String? realParentId;
+    String? rootParentTermId;
+    String rootTitle = '';
+    String parentTitle = '';
+    String? parentTermId;
+    List<Map<String, dynamic>> items = [];
+    List childTaxonomyTerms = [];
+    if (!isAppOffline) {
+      var realCurrentTaxonomy = await graphQLClient.query(
+          QueryOptions(document: gql(getTaxonomyTerm),
+              variables: {'termId': currentTermId})
+      );
+      termTitle =
+          realCurrentTaxonomy.data?['entityQuery']['items'][0][labelKey] ??
+              termTitle;
+      final result = await graphQLClient.query(
+        QueryOptions(
+          document: gql(getParentID),
+          variables: {'termId': currentTermId},
+        ),
+      );
+
+      if (result.hasException) {
+        print("Error fetching parent ID: ${result.exception.toString()}");
+        return;
+      }
+      items = List<Map<String, dynamic>>.from(
+          result.data?['entityQuery']['items'] ?? []);
+      parentTermId =
+      result.data?['entityQuery']['items'][0]['parentRawField']['getString'];
+    }
+    else {
+      items = await Offline().getACLTaxonomy(null, currentTermId, db);
+      parentTermId = items[0]['parent_id'].toString();
+      termTitle = items[0][labelKey];
+    }
+    currentTitle = fixLabel(termTitle);
+    if (items.isEmpty) {
+      return;
+    }
+    Map<dynamic, dynamic> childTerms = {};
+    Map<dynamic, dynamic> childLabels = {};
+    Map<dynamic, dynamic> parentChildTerms = {};
+    Map<dynamic, dynamic> rootParentChildTerms = {};
+    if (parentTermId != null) {
+      if (!isAppOffline) {
+        // Get the parent's label
+        final parentTaxonomy = await graphQLClient.query(
+            QueryOptions(document: gql(getTaxonomyTerm),
+                variables: {'termId': parentTermId})
+        );
+        if (parentTaxonomy.data?['entityQuery']['items'].length > 0) {
+          parentTitle =
+          parentTaxonomy.data?['entityQuery']['items'][0][labelKey];
+          if (parentTitle.contains('M') || parentTitle.endsWith('H') ||
+              parentTitle.endsWith('L')) {
+            final trueParent = await graphQLClient.query(
+              QueryOptions(
+                document: gql(getParentID),
+                variables: {'termId': parentTermId},
+              ),
+            );
+            realParentId = trueParent
+                .data?['entityQuery']['items'][0]['parentRawField']['getString'];
+            final trueParentTaxonomy = await graphQLClient.query(
+                QueryOptions(document: gql(getTaxonomyTerm),
+                    variables: {'termId': realParentId})
+            );
+            parentTitle =
+            trueParentTaxonomy.data?['entityQuery']['items'][0][labelKey];
+            childLabels[realParentId] = parentTitle;
+          }
+        }
+      }
+      else {
+        var parentTaxonomy = await Offline().getACLTaxonomy(null, parentTermId, db);
+        if (parentTaxonomy.length > 0) {
+          parentTitle = parentTaxonomy[0][labelKey];
+          if (parentTitle.contains('M') || parentTitle.endsWith('H') ||
+              parentTitle.endsWith('L')) {
+            var trueParent = await Offline().getParentTaxonomyTerm(parentTermId, db);
+            if (trueParent.length > 0) {
+              realParentId = trueParent[0]['id'].toString();
+              parentTitle = trueParent[0][labelKey];
+              childLabels[realParentId] = parentTitle;
+            }
+          }
+        }
+      }
+      var actualParentId = (realParentId != null ? realParentId : parentTermId);
+      // Get the Previous parent e.g. 4 for 4 H
+      if (!isAppOffline) {
+        final previousParent = await graphQLClient.query(
+            QueryOptions(document: gql(getParentID),
+                variables: {'termId': actualParentId})
+        );
+        if (previousParent.hasException) {
+          print("Error fetching parent ID: ${previousParent.exception
+              .toString()}");
+          return;
+        }
+        if (previousParent.data?['entityQuery']['items'].length > 0) {
+          previousParentId =
+          previousParent
+              .data?['entityQuery']['items'][0]['parentRawField']['getString'];
+          if (previousParentId != null && previousParentId != "0") {
+            final rootTaxonomy = await graphQLClient.query(
+                QueryOptions(document: gql(getTaxonomyTerm),
+                    variables: {'termId': previousParentId})
+            );
+            rootTitle = fixLabel(
+                rootTaxonomy.data?['entityQuery']['items'][0][labelKey]);
+          }
+        }
+        // Get Child terms of the parent e.g. 4.2 4.4 from parent e.g. 4 H
+        final childrenResult = await graphQLClient.query(
+            QueryOptions(document: gql(getChildTerms),
+                variables: {'parentIds': parentTermId})
+        );
+        childTaxonomyTerms = childrenResult.data?['entityQuery']['items'] ?? [];
+      }
+      else {
+        var previousParent = await Offline().getParentTaxonomyTerm(actualParentId, db);
+        if (previousParent.length > 0) {
+          previousParentId = previousParent[0]['id'].toString();
+          if (previousParentId != "0") {
+            var rootTaxonomy = await Offline().getACLTaxonomy(null, previousParentId, db);
+            rootTitle = fixLabel(rootTaxonomy[0][labelKey]);
+          }
+        }
+        childTaxonomyTerms = await Offline().getACLTaxonomy(parentTermId, null, db);
+      }
+      for (var childTerm in childTaxonomyTerms) {
+        childLabels[childTerm['id'].toString()] = childTerm[labelKey];
+        childTerms[childTerm['id'].toString()] = (isAppOffline ? childTerm['weight'].toString() : childTerm['weightRawField']['getString']);
+      }
+      // if the current term is within the parent's children
+      if (childTerms.containsKey(currentTermId)) {
+        var previousChildWeight = 0;
+        var nextChildWeight = 0;
+        // if we are on an L for some reason these have a higher taxonomy weight than the H page.
+        if (currentTitle.contains('L') && !currentTitle.contains('.')) {
+          previousChildWeight = int.parse(childTerms[currentTermId]) + 1;
+          nextChildWeight = int.parse(childTerms[currentTermId]) - 1;
+        }
+        else {
+          previousChildWeight = int.parse(childTerms[currentTermId]) - 1;
+          nextChildWeight = int.parse(childTerms[currentTermId]) + 1;
+        }
+        // if we end in H we need to get the next L as the child and get the current level L as the immediate previous
+        // if we are in an L e.g. 5 L we need to get the previous H as the immediate previous and the child is the current Level's H
+        if ((currentTitle.contains('H') || currentTitle.contains('L'))) {
+          List rootChildTerms = [];
+          List nextRootChildTerms = [];
+          var nextRoot = 0;
+          var letter = 'L';
+          if (currentTitle.contains('H')) {
+            nextRoot = int.parse(parentTitle) + 1;
+          }
+          else {
+            letter = 'H';
+            nextRoot = int.parse(parentTitle) - 1;
+          }
+          if (!isAppOffline) {
+            final rootChildren = await graphQLClient.query(
+                QueryOptions(document: gql(getParentTerms)));
+            rootChildTerms = rootChildren.data?['entityQuery']['items'] ?? [];
+          }
+          else {
+            rootChildTerms = await Offline().getRootTaxonomy(db, 'allen_cognitive_levels');
+          }
+          for (var rootChild in rootChildTerms) {
+            if (rootChild[labelKey] == nextRoot.toString()) {
+              if (!isAppOffline) {
+                final nextRootChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': rootChild['id']}));
+                nextRootChildTerms = nextRootChildren.data?['entityQuery']['items'] ?? [];
+              }
+              else {
+                nextRootChildTerms = await Offline().getChildTaxonomy(rootChild['id'].toString(), 'allen_cognitive_levels', db);
+              }
+              for (var nextRootChild in nextRootChildTerms) {
+                if (nextRootChild[labelKey].endsWith(letter)) {
+                  nextChildTermId = nextRootChild['id'].toString();
+                  childLabels[nextRootChild['id'].toString()] = nextRootChild[labelKey];
+                }
+              }
+            }
+          }
+          // if our current title ends in H e.g 4H or something then the previous will be a higher weight unusally.
+          if (currentTitle.contains('H')) {
+            if (isSubPage(currentTitle)) {
+              if (!isAppOffline) {
+                final nextRootChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': actualParentId}));
+                nextRootChildTerms = nextRootChildren.data?['entityQuery']['items'] ?? [];
+              }
+              else {
+                nextRootChildTerms = await Offline().getChildTaxonomy(actualParentId, 'allen_cognitive_levels', db);
+              }
+              for (var nextRootChild in nextRootChildTerms) {
+                if (nextRootChild[labelKey].endsWith(letter)) {
+                  previousNode = nextRootChild['id'].toString();
+                  previousNodeLabel = fixLabel(nextRootChild[labelKey]);
+                }
+              }
+            }
+            else {
+              childTerms.forEach((term, weight) {
+                if (weight == nextChildWeight.toString()) {
+                  previousNode = term;
+                  previousNodeLabel = fixLabel(childLabels[term]);
+                }
+              });
+            }
+          }
+          else {
+            for (var rootChild in rootChildTerms) {
+              if (rootChild[labelKey] == nextRoot.toString()) {
+                if (!isAppOffline) {
+                  final nextRootChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': rootChild['id']}));
+                  nextRootChildTerms = nextRootChildren.data?['entityQuery']['items'] ?? [];
+                }
+                else {
+                  nextRootChildTerms = await Offline().getChildTaxonomy(rootChild['id'].toString(), 'allen_cognitive_levels', db);
+                }
+                for (var nextRootChild in nextRootChildTerms) {
+                  if (nextRootChild[labelKey].endsWith(letter)) {
+                    previousNode = nextRootChild['id'].toString();
+                    previousNodeLabel = fixLabel(nextRootChild[labelKey]);
+                  }
+                }
+              }
+            }
+            // We are on an L sub page here.
+            if (isSubPage(currentTitle)) {
+              if (!isAppOffline) {
+                final nextRootChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': actualParentId}));
+                nextRootChildTerms = nextRootChildren.data?['entityQuery']['items'] ?? [];
+              }
+              else {
+                nextRootChildTerms = await Offline().getChildTaxonomy(actualParentId, 'allen_cognitive_levels', db);
+              }
+              for (var nextRootChild in nextRootChildTerms) {
+                if (nextRootChild[labelKey].endsWith(letter)) {
+                  nextChildTermId = nextRootChild['id'].toString();
+                  childLabels[nextChildTermId] = nextRootChild[labelKey];
+                }
+              }
+            }
+          }
+        }
+        else if (currentTitle.contains('.')) {
+          childTerms.forEach((term, weight) async {
+            if (weight == nextChildWeight.toString()) {
+              nextChildTermId = term;
+            }
+            if (previousChildWeight != -1) {
+              if (weight == previousChildWeight.toString()) {
+                previousNode = term;
+                previousNodeLabel = fixLabel(childLabels[term]);
+              }
+            }
+          });
+          // we are on a x.6 likely here so our parent will be a h term
+          if (previousChildWeight == -1 && childLabels[actualParentId].contains('H')) {
+            List rootChildrenTaxonomyTerms = [];
+            List previousParentChildrenTaxonomyTerms = [];
+            List childrenTerms = [];
+            if (!isAppOffline) {
+              final rootChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': previousParentId}));
+              rootChildrenTaxonomyTerms = rootChildren.data?['entityQuery']['items'] ?? [];
+            }
+            else {
+              rootChildrenTaxonomyTerms = await Offline().getChildTaxonomy(previousParentId ?? '0', 'allen_cognitive_levels', db);
+            }
+            for (var rootChild in rootChildrenTaxonomyTerms) {
+              // look for the matching L
+              if (rootChild[labelKey].endsWith('L')) {
+                if (!isAppOffline) {
+                  final previousParentChildren = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': rootChild['id']}));
+                  previousParentChildrenTaxonomyTerms = previousParentChildren.data?['entityQuery']['items'] ?? [];
+                }
+                else {
+                  previousParentChildrenTaxonomyTerms = await Offline().getChildTaxonomy(rootChild['id'].toString(), 'allen_cognitive_levels', db);
+                }
+                // Find the H term
+                for (var previousParentChild in previousParentChildrenTaxonomyTerms) {
+                  if (previousParentChild[labelKey].contains('M')) {
+                    if (!isAppOffline) {
+                      var children = await graphQLClient.query(QueryOptions(document: gql(getChildTerms), variables: {'parentIds': previousParentChild['id']}));
+                      childrenTerms = children.data?['entityQuery']['items'] ?? [];
+                    }
+                    else {
+                      childrenTerms = await Offline().getChildTaxonomy(previousParentChild['id'].toString(), 'allen_cognitive_levels', db);
+                    }
+                    for (var child in childrenTerms) {
+                      if (child[labelKey].endsWith('4')) {
+                        previousNode = child['id'].toString();
+                        previousNodeLabel = fixLabel(child[labelKey]);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        // Otherwise look through the current children to find the next one by weight of taxonomy ids.
+        if (!currentTitle.contains('H') && childTerms.containsValue(nextChildWeight.toString())) {
+          if (!currentTitle.contains('.')) {
+            childTerms.forEach((term, weight) {
+              if (weight == nextChildWeight.toString()) {
+                nextChildTermId = term;
+              }
+              if (weight == previousChildWeight.toString() &&
+                  !currentTitle.contains('L')) {
+                previousNode = term;
+                previousNodeLabel = fixLabel(childLabels[previousNode]);
+              }
+            });
+          }
+        }
+        else if (!currentTitle.contains('H') && !currentTitle.contains('L') && !isSubPage(currentTitle)) {
+          // Get Child terms of the parent parent's to work out next section e.g. child terms of 4 e.g. 4 H , 4 L etc
+          List previousParentChildTerms = [];
+          if (!isAppOffline) {
+            final previousParentChildResult = await graphQLClient.query(
+                QueryOptions(document: gql(getChildTerms),
+                    variables: {'parentIds': previousParentId})
+            );
+            previousParentChildTerms = previousParentChildResult
+                .data?['entityQuery']['items'] ?? [];
+          }
+          else {
+            previousParentChildTerms = await Offline().getChildTaxonomy(previousParentId ?? '0', 'allen_cognitive_levels', db);
+          }
+          for (var parentChildTerm in previousParentChildTerms) {
+            parentChildTerms[parentChildTerm['id'].toString()] =
+            (isAppOffline ? parentChildTerm['weight'].toString() : parentChildTerm['weightRawField']['getString']);
+            childLabels[parentChildTerm['id'].toString()] = parentChildTerm[labelKey];
+          }
+          var nextParentChildWeight = 0;
+          var parentLabel = childLabels[actualParentId] ?? '';
+          if (parentLabel.contains('L')) {
+            nextParentChildWeight = int.parse(
+                parentChildTerms[actualParentId]) - 1;
+          }
+          else {
+            nextParentChildWeight = int.parse(
+                parentChildTerms[actualParentId] ?? '0') + 1;
+          }
+          if (parentChildTerms.containsValue(
+              nextParentChildWeight.toString())) {
+            parentChildTerms.forEach((pTerm, parentChildWeight) {
+              if (parentChildWeight == nextParentChildWeight.toString()) {
+                  nextChildTermId = pTerm;
+              }
+            });
+          }
+          else {
+            List<Map<String, dynamic>> parentChildrenTerms = [];
+            if (!isAppOffline) {
+              final rootParentChildResult = await graphQLClient.query(
+                QueryOptions(document: gql(getParentTerms)),
+              );
+
+              parentChildrenTerms =
+                  (rootParentChildResult.data?['entityQuery']['items'] as List? ?? [])
+                      .map((e) => e as Map<String, dynamic>)
+                      .toList();
+            } else {
+              parentChildrenTerms =
+                  (await Offline().getRootTaxonomy(db, 'allen_cognitive_levels'))
+                      .map((e) => e as Map<String, dynamic>)
+                      .toList();
+            }
+            for (var rootParentChildTerm in parentChildrenTerms) {
+              rootParentChildTerms[rootParentChildTerm['id'].toString()] =
+              (isAppOffline ? rootParentChildTerm['weight'].toString() : rootParentChildTerm['weightRawField']['getString']);
+              childLabels[rootParentChildTerm['id'].toString()] = rootParentChildTerm[labelKey];
+            }
+            var nextRootParentChildWeight = int.parse(
+                rootParentChildTerms[previousParentId] ?? '0') + 1;
+            if (rootParentChildTerms.containsValue(
+                nextRootParentChildWeight.toString())) {
+              parentChildTerms.forEach((rTerm, rootParentChildWeight) {
+                if (rootParentChildWeight ==
+                    nextRootParentChildWeight.toString()) {
+                  nextChildTermId = rTerm;
+                }
+              });
+            }
+          }
+        }
+      }
+      // if we have found child but it ends in H or L then we want to go to the next level down and get the first one in the next level down.
+      // But only if we are on a 3rd level page
+      var currentChildLabel = childLabels[nextChildTermId] ?? '';
+      if (((currentTitle.endsWith('L') || currentTitle.endsWith('H')) && (currentChildLabel.endsWith('H') || currentChildLabel.endsWith('L')) && !currentTitle.endsWith('8') && currentChildLabel.contains('.'))
+        || (!(currentTitle.endsWith('L') || currentTitle.endsWith('H')) && (currentChildLabel.endsWith('H') || currentChildLabel.endsWith('L')) && !currentTitle.endsWith('8') && currentTitle.contains('.'))) {
+        List nextChildrenTerms = [];
+        List realNextChildrenTerms = [];
+        if (!isAppOffline) {
+          final nextChildren = await graphQLClient.query(
+              QueryOptions(document: gql(getChildTerms),
+                  variables: {'parentIds': nextChildTermId})
+          );
+          nextChildrenTerms = nextChildren.data?['entityQuery']['items'] ?? [];
+        }
+        else {
+          nextChildrenTerms = await Offline().getChildTaxonomy(nextChildTermId.toString(), 'allen_cognitive_levels', db);
+        }
+        for (var nextChild in nextChildrenTerms) {
+          if (nextChild[labelKey].contains('M')) {
+            if (!isAppOffline) {
+              final realNextChildren = await graphQLClient.query(
+                  QueryOptions(document: gql(getChildTerms),
+                      variables: {'parentIds': nextChild['id']})
+              );
+              realNextChildrenTerms = realNextChildren.data?['entityQuery']['items'] ?? [];
+            }
+            else {
+              realNextChildrenTerms = await Offline().getChildTaxonomy(nextChild['id'].toString(), 'allen_cognitive_levels', db);
+            }
+            for (var realNextChild in realNextChildrenTerms) {
+              var weight = (isAppOffline ? realNextChild['weight'].toString() : realNextChild['weightRawField']['getString']);
+              if (weight == "0") {
+                nextChildTermId = realNextChild['id'].toString();
+                childLabels[realNextChild['id'].toString()] = realNextChild[labelKey];
+              }
+            }
+          }
+        }
+      }
+      else if (currentTitle.contains('8') && !(currentTitle.contains('L') || currentTitle.contains('H'))) {
+        Map<String, String> rootItems = {};
+        List rootTerms = [];
+        List rootChildren = [];
+        List nextRootChildren = [];
+        if (!isAppOffline) {
+          final roots = await graphQLClient.query(
+              QueryOptions(document: gql(getParentTerms))
+          );
+          rootTerms = roots.data?['entityQuery']['items'] ?? [];
+        }
+        else {
+          rootTerms = await Offline().getRootTaxonomy(db, 'allen_cognitive_levels');
+        }
+        for (var root in rootTerms) {
+          rootItems[root['id'].toString()] = root[labelKey];
+          childLabels[root['id'].toString()] = root[labelKey];
+        }
+        if (rootTitle == '') {
+          rootTitle = '0';
+        }
+        var nextRoot = int.parse(rootTitle ?? '0') + 1;
+        if (rootItems.containsValue(nextRoot.toString())) {
+          rootItems.forEach((rTerm, rootLabel) async {
+            if (rootLabel == nextRoot.toString()) {
+              // get the children of this root
+              if (!isAppOffline) {
+                var nextRootChildren = await graphQLClient.query(QueryOptions(
+                    document: gql(getChildTerms),
+                    variables: {'parentIds': rTerm}));
+                rootChildren = nextRootChildren
+                    .data?['entityQuery']['items'] ?? [];
+              }
+              else {
+                rootChildren = await Offline().getChildTaxonomy(rTerm, 'allen_cognitive_levels', db);
+              }
+              for (var nextRootChild in rootChildren) {
+                if (nextRootChild[labelKey].endsWith('L')) {
+                  if (!isAppOffline) {
+                    final nextRootChildChildren = await graphQLClient.query(
+                        QueryOptions(document: gql(getChildTerms),
+                            variables: {'parentIds': nextRootChild['id']}));
+                    nextRootChildren = nextRootChildChildren
+                        .data?['entityQuery']['items'] ?? [];
+                  }
+                  else {
+                    nextRootChildren = await Offline().getChildTaxonomy(nextRootChild['id'].toString(), 'allen_cognitive_levels', db);
+                  }
+                  for (var nextRootChildChild in nextRootChildren) {
+                    if (nextRootChildChild[labelKey].contains('M')) {
+                      List lastChildrenNewRoot = [];
+                      if (!isAppOffline) {
+                        final lastChildNewRoot = await graphQLClient.query(
+                            QueryOptions(document: gql(getChildTerms),
+                                variables: {
+                                  'parentIds': nextRootChildChild['id']
+                                })
+                        );
+                        lastChildrenNewRoot = lastChildNewRoot
+                            .data?['entityQuery']['items'] ?? [];
+                      }
+                      else {
+                        lastChildrenNewRoot = await Offline().getChildTaxonomy(nextRootChildChild['id'].toString(), 'allen_cognitive_levels', db);
+                      }
+                      for (var lastChild in lastChildrenNewRoot) {
+                        if (lastChild[labelKey].endsWith('0')) {
+                          setState(() {
+                            childTerm = lastChild['id'].toString();
+                            childLabel = fixLabel(lastChild[labelKey] ?? '');
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          });
+        }
+      }
+      var finalChildLabel = childLabels[nextChildTermId];
+      finalChildLabel = fixLabel(childLabels[nextChildTermId] ?? '');
+      var finalParentLabel = parentTitle;
+      finalParentLabel = fixLabel(parentTitle);
+      setState(() {
+        childTerm = nextChildTermId;
+        parentTerm = actualParentId;
+        rootTerm = (previousParentId == '0' ? null : previousParentId);
+        childLabel = finalChildLabel;
+        parentLabel = finalParentLabel;
+        rootLabel = rootTitle;
+      });
+    }
+  }
+
+  String fixLabel(String currentLabel) {
+    var finalLabel = currentLabel;
+    if (currentLabel.indexOf('M') != -1) {
+      try {
+        finalLabel = currentLabel.substring(currentLabel.indexOf('M') + 2);
+      } on RangeError catch(e) {
+        finalLabel = currentLabel;
+      }
+    }
+    return finalLabel;
+  }
+
+  bool isSubPage(String pageTitle) {
+    return (((pageTitle.contains('H') || pageTitle.contains('L')) && !pageTitle.endsWith('H') && !pageTitle.endsWith('L')) || '.'.allMatches(pageTitle).length >= 2);
+  }
+
+  // queries for the content nodes associated with the current taxonomy term
+  Future<void> fetchTermContent(String termId) async {
+    List<Map<String, dynamic>> items = [];
+    if (!isAppOffline) {
+      final GraphQLClient graphQLClient = client.value;
+
+      final String query = getNodesByTerm;
+
+      final QueryResult result = await graphQLClient.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'termId': termId, 'langcode': widget.locale},
+        ),
+      );
+
+      items = List<Map<String, dynamic>>.from(
+          result.data?['entityQuery']['items'] ?? []);
+    }
+    else {
+      items = await Offline().getNodesByTaxonomyId(termId, widget.locale, 'web_app', db);
+    }
+    setState(() {
+      contentNodes = [...items];
+      if (contentNodes.isNotEmpty) {
+        currentNodeId = contentNodes[0]['id'].toString();
+        _controller.text = parseHtmlString((isAppOffline ? (contentNodes[0]['body'] ?? '') :
+          contentNodes[0]['translation']?['bodyRawField']?['getString'] ?? ''
+        ));
+      }
+    });
+  }
+
+  Future<void> fetchNotes()  async {
+    if (isAppOffline) {
+      List<Map<String, dynamic>> notes = await Offline().getNotesByNode(int.parse(currentNodeId ?? ''), db);
+      setState(() {
+        userNotes = notes;
+        isLoading = false;
+      });
+    }
+    else {
+      await getUserID().then((currentUserId) async {
+        final GraphQLClient graphQLClient = client.value;
+        final QueryResult res = await graphQLClient.query(
+            QueryOptions(document: gql(getNotesForNode),
+                variables: {'nodeId': currentNodeId, 'user_id': currentUserId})
+        ).then((result) {
+          List<Map<String, dynamic>> notes = List<Map<String, dynamic>>.from(
+              result.data?['entityQuery']['items'] ?? []);
+          setState(() {
+            userNotes = notes;
+            isLoading = false;
+          });
+          return result;
+        });
+      });
+    }
+  }
+
+  // queries for the child terms under the current taxonomy term and the content nodes associated with them
+  Future<void> fetchChildTermsAndContent(String parentId) async {
+    List<Map<String, dynamic>> fetchedChildTermContent = [];
+    List<Map<String, dynamic>> modeTerms = [];
+    List childTerms = [];
+    List modeItems = [];
+    final GraphQLClient graphQLClient = client.value;
+    if (!isAppOffline) {
+      final QueryResult result = await graphQLClient.query(
+        QueryOptions(document: gql(getChildTerms), variables: {
+          'parentIds': [parentId]
+        }),
+      );
+
+      if (result.hasException) {
+        print("Error fetching child terms: ${result.exception.toString()}");
+        return;
+      }
+
+      childTerms = result.data?['entityQuery']['items'] ?? [];
+    }
+    else {
+      childTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
+    }
+
+    for (var childTerm in childTerms) {
+      String childId = childTerm['id'].toString();
+      String childLabel = childTerm[labelKey];
+
+      // if finds umbrella term for mode terms, queries again for the actual modes
+      if (childLabel.endsWith('M')) {
+        if (!isAppOffline) {
+          final QueryResult modeResult = await graphQLClient.query(
+            QueryOptions(
+                document: gql(getChildTerms),
+                variables: {'parentIds': childId}),
+          );
+          modeItems = modeResult.data?['entityQuery']['items'] ?? [];
+        }
+        else {
+          modeItems = await Offline().getChildTaxonomy(childId, 'allen_cognitive_levels', db);
+        }
+        for (var item in modeItems) {
+          List<Map<String, dynamic>> contentItems = [];
+          if (!isAppOffline) {
+            final QueryResult contentResult = await graphQLClient.query(
+              QueryOptions(
+                  document: gql(getNodesByTerm),
+                  variables: {'termId': item['id'], 'langcode': widget.locale}),
+            );
+
+            contentItems =
+            List<Map<String, dynamic>>.from(
+                contentResult.data?['entityQuery']['items'] ?? []);
+          }
+          else {
+            contentItems = await Offline().getNodesByTaxonomyId(item['id'].toString(), widget.locale, 'web_app', db);
+          }
+          for (var content in contentItems) {
+            modeTerms.add({
+              'termId': item['id'].toString(),
+              'termLabel': (isAppOffline ? (content['label'] ?? '') : (content['translation']?['titleRawField']?['getString'])),
+              'contentId': content['id'].toString(),
+              'body': (isAppOffline ? (content['body'] ?? '') : content['translation']?['bodyRawField']?['getString']),
+            });
+          }
+        }
+      } else {
+        List<Map<String, dynamic>> items = [];
+        if (!isAppOffline) {
+          final QueryResult contentResult = await graphQLClient.query(
+            QueryOptions(document: gql(getNodesByTerm),
+                variables: {'termId': childId, 'langcode': widget.locale}),
+          );
+
+          items = List<Map<String, dynamic>>.from(
+              contentResult.data?['entityQuery']['items'] ?? []);
+        }
+        else {
+          items = await Offline().getNodesByTaxonomyId(childId, widget.locale, 'web_app', db);
+        }
+        List<Map<String, dynamic>> allItems = [...items];
+
+        for (var item in allItems) {
+          fetchedChildTermContent.add({
+            'termId': childId,
+            'termLabel': childLabel,
+            'contentLabel': (isAppOffline ? (item['label'] ?? '') : item['translation']?['titleRawField']?['getString']),
+            'contentId': item['id'],
+            'body': (isAppOffline ? (item['body'] ?? '') : item['translation']?['bodyRawField']?['getString']),
+            'contentType': (isAppOffline ? (item['content_type'] ?? '') : item['fieldContentTypeRawField']?['getString']),
+          });
+        }
+      }
+    }
+
+    setState(() {
+      childTermContent = fetchedChildTermContent;
+      modes = modeTerms;
+    });
+  }
+
+  // removes "full_html" from end of string
+  String parseHtmlString(String htmlString) {
+    String parsedText = htmlString;
+
+    if (parsedText.endsWith(", full_html")) {
+      parsedText = parsedText.substring(0, parsedText.length - 11);
+    }
+    parsedText.replaceAll('"/sites', '"' + Env.DRUPAL_URL + '/sites');
+    return parsedText.trim();
+  }
+
+  Future<void> saveHighlightedNote(HighlightedNote highlightedNote) async {
+    final GraphQLClient graphQLClient = client.value;
+    await graphQLClient.mutate(MutationOptions(document: gql(createHighlight), variables: {'node_id': int.parse(highlightedNote.nodeId), 'note': highlightedNote.note, 'highlighted_text': highlightedNote.selectedText, 'note_start': highlightedNote.start, 'note_end': highlightedNote.end})).then((result) {
+      Map<String, dynamic> newNote = {
+        'id': result.data?['createCustomHighlight']['customHighlight']['id'],
+        'noteStartRawField': {'getString': highlightedNote.start},
+        'noteEndRawField': {'getString': highlightedNote.end},
+        'label': highlightedNote.note,
+      };
+      userNotes.add(newNote);
+    });
+
+  }
+
+  void handleMenuClick(taxonomyTermId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => TaxonomyDetailScreen(id: taxonomyTermId, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline))
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
+    var appbar = AppBar(
+       leading:  IconButton(
+          icon: Icon(
+            Icons.home,
+            color: Colors.white.withOpacity(0.85),
+            size: 20,
+          ),
+          onPressed: () => Navigator.push(
+             context, MaterialPageRoute(
+                 builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
+             )
+           )
+        ),
+       title: Text(
+         'Allen App'
+       ),
+    );
+    var drawer = null;
+    if (isLoading) {
+      return loadingScreen();
+    }
+
+    if (contentNodes.isEmpty && childTermContent.isEmpty) {
+      return Scaffold(
+        appBar: appbar,
+        body: SizedBox.shrink(),
+      );
+    }
+
+    List<Widget> leadingWidgets = [];
+    var rootTermPresent = false;
+    var parentTermPresent = false;
+
+    if (rootTerm != null && rootTerm != '0') {
+      rootTermPresent = true;
+      leadingWidgets.add(GestureDetector(onTap: () => handleMenuClick(rootTerm), child: Row(children: [
+        ArrowLabel(
+        color: Colors.red[700]!,
+        child: Text(
+            rootLabel,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16
+            )
+          ),
+        ),
+        SizedBox(width: 5)
+       ]
+      )));
+    }
+    if (parentTerm != null && parentTerm != '0') {
+      parentTermPresent = true;
+      leadingWidgets.add(GestureDetector(onTap: () => handleMenuClick(parentTerm), child: Row(children: [
+      ArrowLabel(
+        color: Colors.red[700]!,
+        child: Text(
+              parentLabel,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16
+              )
+            ),
+          ),
+          SizedBox(width: 5)
+         ]
+        )));
+    }
+    if (previousNode != null) {
+      leadingWidgets.add(GestureDetector(onTap: () => handleMenuClick(previousNode), child: Row(children: [
+      ArrowLabel(
+        color: Colors.red[700]!,
+        child: Text(
+            previousNodeLabel,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16
+            )
+          ),
+        ),
+        SizedBox(width: 5)
+       ]
+      )));
+    }
+    else {
+      leadingWidgets.add(SizedBox(width: 20));
+    }
+
+    if (rootTermPresent && parentTermPresent) {
+       leadingWidgets.add(SizedBox(width: 20));
+    }
+    else if (rootTermPresent || parentTermPresent) {
+       leadingWidgets.add(SizedBox(width: 60));
+    }
+    else if (!rootTermPresent && !parentTermPresent) {
+       leadingWidgets.add(SizedBox(width: 70));
+    }
+
+    leadingWidgets.add(
+      Container(
+        alignment: Alignment.center,
+        child: Text(
+          'ACL ' + currentTitle,
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      )
+    );
+
+    List<Widget> actions = [];
+    if (childTerm.isNotEmpty) {
+      actions.add(GestureDetector(
+        onTap: () => handleMenuClick(childTerm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          child:
+          ArrowLabel(
+            arrowDirection: TagArrowDirection.right,
+            color: Colors.red[700]!,
+            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              child: Text(
+                childLabel,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16
+                )
+              ),
+            )
+         )
+      ));
+    }
+    //actions.add(IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu)));
+    if (userNotes.isNotEmpty) {
+      List<Widget> tiles= [
+        const DrawerHeader(
+          decoration: BoxDecoration(color: Colors.blue),
+          child: Text('Saved Notes'),
+        ),
+      ];
+      for (var userNote in userNotes) {
+        tiles.add(Material(
+          child: ListTile(
+            title: Text((isAppOffline ? userNote['note'] : userNote['label'])),
+            onTap: () {
+              SelectWordSelectionEvent(globalPosition: (isAppOffline ? userNote['start_position'] : userNote['start']));
+              FlutterPlatformAlert.showAlert(
+                windowTitle: 'Saved Note',
+                text: (isAppOffline ? userNote['note'] : userNote['label']),
+              );
+            }
+          )
+        ));
+      }
+      tiles.add(Material(
+        child: ListTile(
+          title: Text('Close Drawer'),
+          onTap: () {
+            Navigator.pop(context);
+
+          },
+        )
+      ));
+      drawer = Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+            children: tiles,
+        )
+      );
+    }
+    return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: menu,
+      appBar: appbar,
+      drawer: drawer,
+      body: FooterView(
+        flex: 1,
+        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
+        children: [Column(
+          children: [
+            AppBar(
+              title: Row(
+                children: leadingWidgets,
+              ),
+              actions: actions,
+              automaticallyImplyLeading: false,
+              primary: false,
+              backgroundColor: Colors.grey[800],
+            ),
+            SizedBox(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Container(
+                color: Colors.white,
+                child: Table(
+                  columnWidths: {0: FlexColumnWidth()},
+                  children: [
+
+                    if (isSubPage(originalTitle)) ...[
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(1.0),
+                            child: TextButton.icon(
+                              icon: Icon(Icons.arrow_back),
+                              onPressed: () => Navigator.pop(context),
+                              label: Text(originalTitle.substring(0,  originalTitle.length - 1),
+                                textAlign: TextAlign.left,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: const Color.fromARGB(255, 255, 17, 0),
+                                ),
+                              ), style: TextButton.styleFrom(padding: EdgeInsets.zero, iconColor: const Color.fromARGB(255, 255, 17, 0), tapTargetSize: MaterialTapTargetSize.shrinkWrap)
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (contentNodes.isNotEmpty) ...[
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              contentNodes[0]['translation']
+                                          ?['titleRawField']?['getString'] ?? '',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: const Color.fromARGB(255, 255, 17, 0),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: SelectableAllenText(
+                              text: parseHtmlString((isAppOffline ? (contentNodes[0]['body'] ?? '') : (contentNodes[0]['translation']?['bodyRawField']?['getString'] ?? ''))),
+                              notes: userNotes,
+                              currentNodeId: currentNodeId,
+                              isOffline: isAppOffline,
+                            )
+                          ),
+                        ],
+                      ),
+                    ],
+                    ...childTermContent.map((item) {
+                      // determines if content should open up in new page or in an accordion
+                      bool isNavigable = item['contentType'] == 'P';
+                      bool isAccordion = item['contentType'] == 'A';
+
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: isNavigable
+                              ? ListTile(
+                                title: Text(
+                                  item['contentLabel'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold),
+                                ),
+                                  leading: Icon(Icons.arrow_forward_ios_outlined),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                          // recursively navigates to new detail screen with new id passed in
+                                          TaxonomyDetailScreen(
+                                            id: item['termId'],
+                                            isEnglishUS: widget.isEnglishUS,
+                                            locale: widget.locale,
+                                            isOffline: isAppOffline
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : isAccordion
+                                  ? ExpansionTile(
+                                    title: Text(
+                                      item['contentLabel'] ?? '',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                      ),
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                            child: HtmlWidget(parseHtmlString(
+                                              item['body'] ?? '')),
+                                          ),
+                                        ],
+                                      )
+                                    : SizedBox.shrink(),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                    // displays all mode terms under another accordion
+                    if (modes.isNotEmpty) ...[
+                      TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: ExpansionTile(
+                              title: Text(
+                                'Modes',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              children: modes.map((mode) {
+                                return ListTile(
+                                  title: Text(mode['termLabel']),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            TaxonomyDetailScreen(
+                                          id: mode['termId'],
+                                          isEnglishUS: widget.isEnglishUS,
+                                          locale: widget.locale,
+                                          isOffline: isAppOffline
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ])],
+      ),
+    );
+  }
+}

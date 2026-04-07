@@ -9,6 +9,7 @@ import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 import '../services/Offline.dart';
 import 'loadingScreen.dart';
+import 'home.dart';
 
 // screen that renders when user selected Allen Cognitive Levels
 class TaxonomyHierarchyScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   int count1 = 0;
   int count2 = 0;
   int count3 = 0;
+  final Map<String, Map<String, String>> siblings = {};
 
   @override
   void initState() {
@@ -210,12 +212,12 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   }
 
   // helper function to navigate to detail screen to display details of each taxonomy term when user presses a node on the chart
-  void navigateToDetail(BuildContext context, Term term) {
+  void navigateToDetail(BuildContext context, Term term, {Map<String, Map<String, String>>? siblings}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) =>
-            TaxonomyDetailScreen(id: term.id, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline),
+            TaxonomyDetailScreen(id: term.id, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, siblings: siblings ?? {}),
       ),
     );
   }
@@ -223,187 +225,229 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
+    final screenWidth = MediaQuery.of(context).size.width;
+
     if (isLoading) {
-      return loadingScreen();
+      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
+        leading:  IconButton(
+          icon: Icon(
+            Icons.home,
+            color: Colors.white.withOpacity(0.85),
+            size: 20,
+          ),
+          onPressed: () => Navigator.push(
+            context, MaterialPageRoute(
+              builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
+            )
+          )
         ),
-        centerTitle: true,
+        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
         actions: [
           IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu)),
         ]
       ),
       endDrawer: menu,
-      body: FooterView(
-        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
-        flex: 1,
-        children: [
-        Container(
-            color: Colors.grey[800],
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            height: 56, // Same as AppBar height
-            alignment: Alignment.center,
-            child: Text(
-              'Allen Cognitive Levels',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          SizedBox(
-            height: 550,
-            child: Column(children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        // iterates through parent terms and displays them in one table with 6 rows on the left side
-                        children: List.generate(
-                          6,
-                          (index) {
-                            if (count1 < parentTerms.length) {
-                              Term term = parentTerms[count1];
-                              count1++;
-                              return Table(
-                                border: TableBorder.all(),
-                                columnWidths: {
-                                  0: FlexColumnWidth(),
-                                },
-                                children: [
-                                  TableRow(
-                                    children: [
-                                      GestureDetector(
-                                        onTap: () => navigateToDetail(context, term),
-                                        child: Container(
-                                          height: 64.0,
-                                          alignment: Alignment.center,
-                                          color: Color(int.parse(
-                                            '0xFF${term.colour.substring(1)}')),
-                                          child: Text(
-                                            term.label,
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold),
-                                         ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Title bar
+            Container(
+                color: Colors.grey[800],
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                height: 56, // Same as AppBar height
+                alignment: Alignment.center,
+                child: Text(
+                  'Allen Cognitive Levels',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                child: Container(
+                  color: Colors.white,
+                  child: SizedBox(
+                    height: 610,
+                    child: Center(
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.95,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // LEFT COLUMN — SMALL (1–6)
+                            SizedBox(
+                              width: 100,
+                              child: Column(
+                                children: List.generate(6, (index) {
+                                  if (count1 < parentTerms.length) {
+                                    Term term = parentTerms[count1];
+                                    count1++;
+                                    return Table(
+                                      border: TableBorder.all(),
+                                      columnWidths: const {
+                                        0: FlexColumnWidth(1),
+                                      },
+                                      children: [
+                                        TableRow(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () => navigateToDetail(context, term),
+                                              child: Container(
+                                                height: 100,
+                                                alignment: Alignment.center,
+                                                color: Color(
+                                                  int.parse('0xFF${term.colour.substring(1)}'),
+                                                ),
+                                                child: Text(
+                                                  term.label,
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              );
-                            } else {
-                              return SizedBox();
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        children: List.generate(
-                          // displays 11 tables on the right side, alternating between displaying child terms and mode terms
-                          11,
-                          (index) {
-                            // makes sure the last table is displayed differently from the others
-                            if (index == 10) {
-                              Term term = (count2 < childTerms.length)
-                                ? childTerms[count2++]
-                                : Term(id: '', label: 'N/A', colour: '#FFFFFF');
-                              return Table(
-                                border: TableBorder.all(),
-                                columnWidths: {0: FlexColumnWidth()},
-                                children: [
-                                  TableRow(
-                                    children: [
+                                      ],
+                                    );
+                                  } else {
+                                    return const SizedBox.shrink();
+                                  }
+                                }),
+                              ),
+                            ),
+                            // RIGHT COLUMN — WIDE (L / H / Modes)
+                            Expanded(
+                              child: Column(
+                                children: List.generate(11, (index) {
+                                  if (index == 10) {
+                                    Term term = (count2 < childTerms.length)
+                                        ? childTerms[count2++]
+                                        : Term(id: '', label: 'N/A', colour: '#FFFFFF');
+                                    return Table(
+                                      border: TableBorder.all(),
+                                      columnWidths: const {0: FlexColumnWidth()},
+                                      children: [
+                                        TableRow(
+                                          children: [
+                                            GestureDetector(
+                                              onTap: () => navigateToDetail(context, term, siblings: siblings),
+                                              child: Container(
+                                                height: 100,
+                                                alignment: Alignment.center,
+                                                color: Color(
+                                                  int.parse('0xFF${term.colour.substring(1)}'),
+                                                ),
+                                                child: Text(
+                                                  term.label,
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  List<Widget> columns = [];
+                                  String? currentKey;
+                                  int columnCount = index.isEven ? 2 : 5;
+
+                                  for (int colIndex = 0; colIndex < columnCount; colIndex++) {
+                                    Term term;
+                                    if (index.isEven) {
+                                      // Use childTerms for even index
+                                      term = (count2 < childTerms.length) ? childTerms[count2++] : childTerms.last;
+
+                                      // Set current key
+                                      currentKey = term.label;
+
+                                      // Safely initialize inner map only if not already present
+                                      siblings.putIfAbsent(term.label[0], () => <String, String>{});
+                                      siblings[term.label[0]]![term.label] = term.id;
+                                      siblings.putIfAbsent(currentKey, () => <String, String>{});
+                                    } else {
+                                      // Use modeTerms for odd index
+                                      term = (count3 < modeTerms.length) ? modeTerms[count3++] : modeTerms.last;
+
+                                      // Safely add to inner map
+                                      if (term.label.isNotEmpty) {
+                                        String parentLevel;
+                                        if (colIndex < 3) {
+                                          parentLevel = term.label[0] + ' L';
+                                        }
+                                        else {
+                                          parentLevel = term.label[0] + ' H';
+                                        }
+                                        // Ensure inner map exists
+                                        siblings.putIfAbsent(parentLevel, () => <String, String>{});
+                                        siblings[parentLevel]![term.label] = term.id;
+                                      }
+                                    }
+
+                                    columns.add(
                                       GestureDetector(
-                                        onTap: () => navigateToDetail(context, term),
+                                        onTap: () => navigateToDetail(context, term, siblings: siblings),
                                         child: Container(
-                                          height: 64.0,
+                                          height: 50,
                                           alignment: Alignment.center,
-                                          color: Color(int.parse(
-                                            '0xFF${term.colour.substring(1)}')),
+                                          color: Color(
+                                            int.parse('0xFF${term.colour.substring(1)}'),
+                                          ),
                                           child: Text(
                                             term.label,
                                             textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold),
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
                                           ),
                                         ),
                                       ),
+                                    );
+                                  }
+
+
+                                  return Table(
+                                    border: TableBorder.all(),
+                                    columnWidths: columnCount == 2
+                                        ? const {
+                                            0: FlexColumnWidth(3),
+                                            1: FlexColumnWidth(2),
+                                          }
+                                        : {
+                                            for (int i = 0; i < columnCount; i++)
+                                              i: const FlexColumnWidth(),
+                                          },
+                                    children: [
+                                      TableRow(children: columns),
                                     ],
-                                  ),
-                                ],
-                              );
-                            }
-
-                            // table display for the other terms on the right side
-                            // uses current index to determine if the table being generated is for child terms or mode terms (2 cols or 5 cols)
-                            List<Widget> columns = [];
-                            for (int colIndex = 0;
-                              colIndex < (index % 2 == 0 ? 2 : 5);
-                              colIndex++) {
-                              Term term;
-                              if (index % 2 == 0) {
-                                if (count2 < childTerms.length) {
-                                  term = childTerms[count2];
-                                  count2++;
-                                } else {
-                                  term = childTerms.last;
-                                }
-                              } else {
-                                if (count3 < modeTerms.length) {
-                                  term = modeTerms[count3];
-                                  count3++;
-                                } else {
-                                  term = modeTerms.last;
-                                }
-                              }
-                              columns.add(
-                                GestureDetector(
-                                  onTap: () => navigateToDetail(context, term),
-                                  child: Container(
-                                    height: 32.0,
-                                    alignment: Alignment.center,
-                                    color: Color(int.parse(
-                                       '0xFF${term.colour.substring(1)}')),
-                                    child: Text(
-                                      term.label,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            return Table(
-                              border: TableBorder.all(),
-                              columnWidths: Map.fromIterable(
-                                List.generate(
-                                  index % 2 == 0 ? 2 : 5, (index) => index),
-                                key: (index) => index,
-                                value: (index) => FlexColumnWidth(),
+                                  );
+                                }),
                               ),
-                              children: [
-                                TableRow(children: columns),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                            ),
+
+                          ],
+                        )
+                      )
                     ),
-                  ],
-                ),
+                  )
+                )
               ),
-            ),
-          ]))
-      ]),
+              // Footer now scrolls with content (no whitespace EVER)
+              AllenAppFooter(
+                locale: widget.locale,
+                isEnglishUS: widget.isEnglishUS,
+              ),
+            ]
+          )
+        ),
     );
   }
 }

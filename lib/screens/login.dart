@@ -18,6 +18,7 @@ class FormData {
 class LoginPage extends StatefulWidget {
   final bool authenticated;
   final bool forceLogin;
+
   const LoginPage({super.key, required this.title, required this.authenticated, this.forceLogin = false});
 
   final String title;
@@ -30,6 +31,7 @@ class _loginPageState extends State<LoginPage> {
   String pin_code = '';
   bool loading = true;
   bool isAuthenticated = false;
+  String locale = '';
   FormData formData = FormData();
 
   void initState() {
@@ -37,17 +39,26 @@ class _loginPageState extends State<LoginPage> {
     setState(() {
       isAuthenticated = widget.authenticated;
     });
+    getLocale();
     getPinCode();
   }
 
-  Future<void> _authenticate(BuildContext context) async {
+  Future<void> getLocale() async {
+    String storedLocale = await getLangaugeCode() ?? '';
+    setState(() {
+      locale = storedLocale;
+    });
+  }
+
+  Future<void> _authenticate(BuildContext context, bool forceLogin) async {
     int expiryTime = await getExpiry() ?? 0;
     var now = DateTime.now().millisecondsSinceEpoch;
     var isOffline = await getOfflineStatus() ?? false;
     var languageCode = await getLangaugeCode() ?? '';
     if (!isOffline) {
       String? token = await getToken();
-      if (token == null || token == '') {
+
+      if (token == null || token == '' || forceLogin) {
         if ((formData.username ?? '').isEmpty) {
           Navigator.push(
             context,
@@ -55,11 +66,34 @@ class _loginPageState extends State<LoginPage> {
           );
         }
         var accessToken = await authenticateUser(formData.username, formData.password);
-        if (accessToken != null) {
+        if (accessToken == null || accessToken.isEmpty) {
+        final snackBar = SnackBar(
+          backgroundColor: Color.fromRGBO(213, 31, 39, 1),
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_outlined, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Login Failed, please check your username and password and try again.',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Helvetica, sans-serif',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+          return;
+        }
+        if (accessToken != null && accessToken.isNotEmpty) {
           await saveToken(accessToken['access_token'] ?? '', 'access_token');
           await saveToken(accessToken['refresh_token'] ?? '', 'refresh_token');
           await saveToken(accessToken['expires_in'] ?? '', 'expires_in');
-          token = await getToken();
+          token = accessToken['access_token'] ?? '';
           final GraphQLClient graphQLClient = client.value;
           var getCurrentUser = await graphQLClient.query(
               QueryOptions(document: gql(getLoggedInUser))
@@ -71,6 +105,7 @@ class _loginPageState extends State<LoginPage> {
       else if (now >= expiryTime) {
         token = await getNewToken();
       }
+      await setLastPinCodeRequest();
     }
     else {
       int offlineDate = await getOfflineDate();
@@ -83,19 +118,22 @@ class _loginPageState extends State<LoginPage> {
         );
       }
       if (now >= expiryDate.millisecondsSinceEpoch) {
+        await setLastPinCodeRequest();
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => AppAccessBlocked(locale: languageCode))
         );
       }
       else if (languageCode.isNotEmpty) {
+        await setLastPinCodeRequest();
         await setOfflineStatus(true, false);
         Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN_US'), locale: languageCode, isOffline: isOffline))
+            MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN'), locale: languageCode, isOffline: isOffline))
         );
       }
       else {
+        await setLastPinCodeRequest();
         await setOfflineStatus(true, false);
         Navigator.push(
             context,
@@ -108,16 +146,18 @@ class _loginPageState extends State<LoginPage> {
     if (pin_code.isEmpty) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => LoginPage(title: 'Allen App', authenticated: true))
+        MaterialPageRoute(builder: (context) => LoginPage(title: 'Allen App', authenticated: true, forceLogin: widget.forceLogin))
       );
     }
     else if (languageCode.isNotEmpty && !isOffline) {
+      await setLastPinCodeRequest();
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN_US'), locale: languageCode, isOffline: isOffline))
+        MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN'), locale: languageCode, isOffline: isOffline))
       );
     }
     else if (!isOffline) {
+      await setLastPinCodeRequest();
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -141,38 +181,46 @@ class _loginPageState extends State<LoginPage> {
       pin_code = code;
     });
     await storePinCode(code).then((result) {
-      _authenticate(context);
+      _authenticate(context, false);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final arguments = (ModalRoute.of(context)?.settings.arguments ?? <String, dynamic>{}) as Map;
     if (loading) {
       return Scaffold(
           appBar: AppBar(
-            title: Text(
-              'Allen App',
-              style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-            ),
-            centerTitle: true
+            //title: Text(
+            //  'Allen App',
+            //  style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
+            //),
+            title: Image(image: AssetImage("images/Allen_App_title.png")),
+            centerTitle: true,
+            automaticallyImplyLeading: false,
           ),
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    if (!isAuthenticated || widget.forceLogin) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title, style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)),
-          centerTitle: true
-        ),
-        body: LoginForm(formData: formData, submitFunction: _authenticate),
-      );
+    if (!isAuthenticated || widget.forceLogin || (arguments['forceLogin'] ?? false)) {
+      bool isEnglishUS = true;
+      if (pin_code.isEmpty) {
+        setState(() {
+          locale = 'EN';
+        });
+      }
+      else {
+        isEnglishUS = (locale == 'EN');
+      }
+      return LoginForm(formData: formData, submitFunction: _authenticate, isEnglishUS: isEnglishUS, locale: locale);
     }
     else if (pin_code.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          title: Text(widget.title, style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)),
-          centerTitle: true
+          //title: Text(widget.title, style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)),
+          title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
         ),
         body: Center(
           child: Column(
@@ -203,13 +251,15 @@ class _loginPageState extends State<LoginPage> {
     else {
       return Scaffold(
         appBar: AppBar(
-            title: Text(
-                widget.title,
-                style: TextStyle(fontFamily: 'helvetica,sans-serif',
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold)
-            ),
-            centerTitle: true
+          title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+          //title: Text(
+          //  widget.title,
+          //  style: TextStyle(fontFamily: 'helvetica,sans-serif',
+          //  color: Colors.white,
+          //  fontWeight: FontWeight.bold)
+          //),
+          centerTitle: true,
+          automaticallyImplyLeading: false,
         ),
         body: Center(
           child: Column(
@@ -233,7 +283,7 @@ class _loginPageState extends State<LoginPage> {
                           onCancelled: Navigator
                               .of(context)
                               .pop,
-                          onUnlocked: () => {_authenticate(context)},
+                          onUnlocked: () => {_authenticate(context, false)},
                         );
                       },
                     ),

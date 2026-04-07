@@ -3,7 +3,6 @@ import '../services/Offline.dart';
 import '../models/footer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-import 'package:footer/footer_view.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
 import 'activitystart.dart';
@@ -110,7 +109,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
   Widget build(BuildContext context) {
     final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
     if (isLoading) {
-      return loadingScreen();
+      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     // separates queried decision labels into an array of labels separated by commas
     List<String> decisionLabels = [];
@@ -147,6 +146,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
     // step 1: assign taxonomies to 'Next' labels
     List<int> nextLabelIndexes = [];
+    List<int> backLabelIndexes = [];
     for (int i = 0; i < decisionLabels.length; i++) {
       if (decisionLabels[i] == "Next") {
         nextLabelIndexes.add(i);
@@ -154,18 +154,26 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       else if (decisionLabels[i] == "More") {
         otherActivity = i;
       }
+      else if (decisionLabels[i] == "Back") {
+        backLabelIndexes.add(i);
+      }
     }
     if (decisionTaxonomies.isNotEmpty) {
-      if (nextLabelIndexes.length != decisionTaxonomies.length) {
+      if (nextLabelIndexes.length != decisionTaxonomies.length && nextLabelIndexes.isNotEmpty) {
         try {
           throw Exception(
             "Number of 'Next' labels does not match number of decision taxonomies.");
         } on Exception catch (e) {
             // Handle soft exception gracefully
             print(e);
+            debugPrint(
+              "Warning: ${nextLabelIndexes.length} 'Next' labels but "
+              "${decisionTaxonomies.length} decision taxonomies"
+            );
         }
       }
 
+      if (nextLabelIndexes.isNotEmpty) {
       for (int i = 0; i < decisionTaxonomies.length; i++) {
         int labelIndex = nextLabelIndexes[i];
         String taxonomyId = decisionTaxonomies[i];
@@ -186,8 +194,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
           );
         };
       }
+      }
     }
-
     // step 2: assign remaining decision targets to remaining labels
     int targetIndex = 0;
     for (int i = 0; i < decisionLabels.length; i++) {
@@ -227,79 +235,86 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: Colors.grey[200],
       appBar: AppBar(
-        title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true,
+        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
         actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))],
       ),
       endDrawer: menu,
-      body: FooterView(
-       flex: 1,
-       footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
-       children: [
-       Container(
-         color: Colors.grey[800],
-         padding: EdgeInsets.symmetric(horizontal: 16),
-         height: 56, // Same as AppBar height
-         alignment: Alignment.center,
-         child: Text(
-           widget.label,
-           style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-         ),
-       ),
-       SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 8),
-            SelectableAllenText(text: parseHtmlString(widget.body), notes: userNotes, currentNodeId: widget.nodeId, isOffline: isAppOffline),
-            SizedBox(height: 16),
-            for (int i = 0; i < decisionLabels.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (decisionBodies.isNotEmpty &&
-                            i < decisionBodies.length)
-                          Expanded(
-                            flex: 2,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: HtmlWidget(
-                                parseHtmlString(decisionBodies[i]),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+             color: Colors.grey[800],
+             padding: EdgeInsets.symmetric(horizontal: 16),
+             height: 56, // Same as AppBar height
+             alignment: Alignment.center,
+             child: Text(
+               widget.label,
+               style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+             ),
+           ),
+           Padding(
+             padding: const EdgeInsets.all(8),
+             child: Container(
+               color: Colors.white,
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                    SizedBox(height: 8),
+                    SelectableAllenText(text: parseHtmlString(widget.body), notes: userNotes, currentNodeId: widget.nodeId, isOffline: isAppOffline),
+                    SizedBox(height: 16),
+                    for (int i = 0; i < decisionLabels.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (decisionBodies.isNotEmpty &&
+                                    i < decisionBodies.length)
+                                  Expanded(
+                                    flex: 2,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: SelectableAllenText(
+                                        text: parseHtmlString(decisionBodies[i]), currentNodeId: widget.nodeId, notes: userNotes, isOffline: isAppOffline,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            Center(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.zero
+                                  ),
+                                  backgroundColor: Colors.grey[800],
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(40, 40), //////// HERE
+                                ),
+                                onPressed: buttonActions[i],
+                                child: Text(decisionLabels[i], style: TextStyle(fontSize: 18)),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.zero
-                          ),
-                          backgroundColor: Colors.grey[800],
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(40, 40), //////// HERE
+                          ],
                         ),
-                        onPressed: buttonActions[i],
-                        child: Text(decisionLabels[i]),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                )
               ),
-          ],
+              AllenAppFooter(
+                locale: widget.locale,
+                isEnglishUS: widget.isEnglishUS,
+              ),
+            ]
+          )
         ),
-      )]),
     );
   }
 }

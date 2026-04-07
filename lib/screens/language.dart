@@ -4,7 +4,6 @@ import '../services/query.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'home.dart';
 import '../models/footer.dart';
-import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 
 // screen renders when app is first started
@@ -31,12 +30,12 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
       {
         'id': 'en',
         'label': 'English (UK)',
-        'langcode': 'EN',
+        'langcode': 'EN_GB',
       },
       {
         'id': 'en_us',
         'label': 'English (US)',
-        'langcode': 'EN_US',
+        'langcode': 'EN',
       },
     ];
     final GraphQLClient graphQLClient = client.value;
@@ -49,7 +48,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
     for (var locale in languages.data?['entityQuery']['items'] ?? standard_locales) {
       if (locale['id'] != "und" && locale['id'] != "zxx") {
         var term = {
-          'langcode': locale['langcode'].toUpperCase().replaceAll('-', '_'),
+          'langcode': locale['id'].toUpperCase().replaceAll('-', '_'),
           'label': locale['label']
         };
         locales.add(term);
@@ -64,12 +63,12 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
   @override
   Widget build(BuildContext context) {
     if (_selectedLanguage == null || _selectedLanguage == '') {
-      _selectedLanguage = widget.selectedLanguage ?? 'EN_US';
+      _selectedLanguage = widget.selectedLanguage ?? 'EN';
     }
     if (isLoading) {
       getLocales();
       return Scaffold(
-        appBar: AppBar(title: Text('Allen App')),
+        appBar: AppBar(title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50)),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -91,21 +90,21 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[700]),
+                color: Colors.black),
             ),
           ),
       ]));
     if (appLanguages.isNotEmpty) {
       for (var appLanguage in appLanguages) {
-        var iconcode = (appLanguage['langcode'] == 'EN_US' ? 'us' : 'gb');
-        var subtext = (appLanguage['langcode'] == 'EN_US' ? ' - imperial units' : ' - metric units');
+        var iconcode = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? 'us' : 'gb') : appLanguage['langcode'].toLowerCase());
+        var subtext = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? ' - imperial units' : ' - metric units') : ' - metric units');
         LanguageWidgets.add(
             TableRow(
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(4.0),
                     child: RadioListTile<String>(
-                      activeColor: Colors.red,
+                      activeColor: Color.fromRGBO(213, 31, 39, 1),
                       title: Row(
                         children: <Widget>[
                             Image.asset('icons/flags/png100px/' + iconcode + '.png', package: 'country_icons', height: 20),
@@ -142,60 +141,76 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
      ),
     ]));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Allen App',
-           style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
+    return PopScope(
+      canPop: false, // disables all back navigation
+      onPopInvoked: (didPop) {
+        // optional: handle attempted back navigation
+        print("Back button pressed but blocked");
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[200],
+        appBar: AppBar(
+          title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+          automaticallyImplyLeading: false
         ),
-        centerTitle: true
-      ),
-      body: FooterView(
-        footer: AllenAppFooter(locale: _selectedLanguage ?? 'EN_US', isEnglishUS: (_selectedLanguage == 'EN_US')),
-        flex: 1,
-        children:<Widget>[
-          Padding(
-            padding: const EdgeInsets.all(0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
+        body: SingleChildScrollView(
+          child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: Table(
+                      columnWidths: const {0: FlexColumnWidth(),},
+                      children: LanguageWidgets
+                    )
+                  ),
+                  Container(
                   color: Colors.white,
-                  child: Table(
-                    columnWidths: const {0: FlexColumnWidth(),},
-                    children: LanguageWidgets
-                  )
-                ),
-                Center(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero
-                      ),
-                      backgroundColor: Colors.grey[800],
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(40, 40), //////// HERE
-                    ),
-                    onPressed: () {
-                      bool isEnglishUS = _selectedLanguage == 'EN_US';
-                      saveLanguage(_selectedLanguage);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                           builder: (context) => HomePage(isEnglishUS: isEnglishUS, locale: _selectedLanguage ?? 'EN_US', isOffline: widget.isOffline)
+                  child: Center(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero
                         ),
-                      );
-                    },
-                    child: const Text('Next',
-                      style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
+                        backgroundColor: Colors.grey[800],
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(40, 40), //////// HERE
+                      ),
+                      onPressed: () {
+                        bool isEnglishUS = _selectedLanguage == 'EN_US';
+                        saveLanguage(_selectedLanguage);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                             builder: (context) => HomePage(isEnglishUS: isEnglishUS, locale: _selectedLanguage ?? 'EN_US', isOffline: widget.isOffline)
+                          ),
+                        );
+                      },
+                      child: const Text('Next',
+                        style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
+                      ),
+                    )
+                  )),
+                  SizedBox(
+                    height: 20, // height of the white bar
+                    child: Container(
+                      color: Colors.white, // white background bar
                     ),
-                  )
-                )
-              ]
+                  ),
+                  AllenAppFooter(
+                    locale: _selectedLanguage ?? 'EN_US', isEnglishUS: (_selectedLanguage == 'EN_US')
+                  ),
+                ]
+              ),
             ),
-          ),
-        ],
+          ],
+        )
       )
-    );
+    ));
   }
 }

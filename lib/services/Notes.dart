@@ -33,7 +33,6 @@ Future<void> fetchTargetData(BuildContext context, String targetId, locale, isOf
     items = await Offline().getActivities(locale, db, targetId);
   }
   final RegExp activityPattern = RegExp(r'^(100|[1-9]?[0-9])$');
-
   if (items.isNotEmpty) {
     final item = items[0];
     // exception handling, leads back to activitystart screen if the decision target is a main activity node
@@ -48,7 +47,7 @@ Future<void> fetchTargetData(BuildContext context, String targetId, locale, isOf
             label: (isOffline ? item['label'] : item['translation']['label']),
             body: (isOffline ? item['body'] : item['translation']['bodyRawField']['getString']),
             activityId: (isOffline ? item['activity_id'] : item['translation']['fieldActivityIdRawField']['getString']),
-            isEnglishUS: (locale == 'en_US'),
+            isEnglishUS: (locale == 'EN'),
             locale: locale,
             isOffline: isOffline
           ),
@@ -69,7 +68,7 @@ Future<void> fetchTargetData(BuildContext context, String targetId, locale, isOf
             decisionTarget: (isOffline ? (item['decision_targets'] ?? '') : item['translation']['fieldDecisionTargetRawField']['getString']),
             decisionTaxonomy: (isOffline ? (item['decision_taxonomy_ids'] ?? '')  : item['translation']['fieldDecisionTaxonomyRawField']
             ['getString']),
-            isEnglishUS: (locale == 'en_US'),
+            isEnglishUS: (locale == 'EN'),
             locale: locale,
             isOffline: isOffline
           ),

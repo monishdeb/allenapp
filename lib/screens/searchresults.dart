@@ -20,10 +20,8 @@ class SearchResultsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Allen App',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        ),
-        centerTitle: true
+          'Allen App'
+        )
       ),
       body: FooterView(footer: AllenAppFooter(locale: locale, isEnglishUS: isEnglishUS),
       children: [

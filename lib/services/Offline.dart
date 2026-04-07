@@ -85,7 +85,7 @@ class Offline {
     final nodeResponseJson = jsonDecode(nodeResponse.body) as List<dynamic>;
     for (var i = 0; i < nodeResponseJson.length; i++) {
       if (!isReOpen) {
-        await db.delete('note',
+        await db.delete('notes',
             where: 'id = ?',
             whereArgs: [nodeResponseJson[i]['id']]
         );
@@ -168,10 +168,12 @@ class Offline {
         await db.delete('notes',
           where: 'is_synced = 0'
         );
-        await db.delete('notes',
-            where: 'id = ?',
-            whereArgs: [notesResponseJson[i]['id']]
-        );
+        if (notesResponseJson[i]['id'] != null) {
+          await db.delete('notes',
+              where: 'id = ?',
+              whereArgs: [notesResponseJson[i]['id']]
+          );
+        }
       }
       await db.execute(
           'INSERT INTO notes (id, node_id, note, selected_text, start_position, end_position, is_synced) VALUES (?, ?, ?, ?, ?, ?, ?)',

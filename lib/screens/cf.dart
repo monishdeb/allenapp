@@ -7,9 +7,7 @@ import '../models/footer.dart';
 import '../services/query.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../models/menu.dart';
-import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 
 // screen that renders when the user selected Conceptual Frameworks from main menu page
@@ -47,101 +45,114 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
-    );
+    var appbar = AppBar(title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50));
     return Scaffold(
       key: _scaffoldKey,
+      backgroundColor: Colors.grey[200],
       appBar: appbar,
-      body: FooterView(
-        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
-        flex: 1,
+      body: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-         Container(
+          // Title bar
+          Container(
             color: Colors.grey[800],
             padding: EdgeInsets.symmetric(horizontal: 16),
-            height: 56, // Same as AppBar height
+            height: 56,
             alignment: Alignment.center,
             child: Text(
               'Conceptual Framework',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          !isAppOffline ? (
-            Query(
-              options: QueryOptions(document: gql(getParentCFTerms)),
-              builder: (QueryResult result, {fetchMore, refetch}) {
-                if (result.isLoading) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (result.hasException) {
-                  return Center(child: Text("Error: ${result.exception.toString()}"));
-                }
-                List items = result.data?["entityQuery"]["items"] ?? [];
-                return ListView.builder(
-                    itemCount: items.length,
-                    scrollDirection: Axis.vertical,
-                    shrinkWrap: true,
-                    physics: ScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      var term = items[index];
-                      return Container(
-                        width: double.infinity, // Make each item take full width
-                        child: TermAccordion(
-                          termId: term["id"],
-                          fallbackLabel: term["label"],
-                          isEnglishUS: widget.isEnglishUS,
-                          locale: widget.locale,
-                          isAutoExpand: true,
-                          isOffline: isAppOffline,
-                        ),
-                      );
-                    },
-                );
-              },
-            )
-          ) : (
-            FutureBuilder(
-              future: Offline().getCFTerms(db, '0'),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                      child: Text('Error fetching child terms'));
-                }
-                List items = snapshot.data ?? [];
-                return ListView.builder(
-                  itemCount: items.length,
-                  scrollDirection: Axis.vertical,
-                  shrinkWrap: true,
-                  physics: ScrollPhysics(),
-                  itemBuilder: (context, index) {
-                    var term = items[index];
-                    var title = term.containsKey('title') ? term['title'] : term['label'];
+          Padding(
+            padding: EdgeInsets.zero,
+            child: Container(
+              padding: EdgeInsets.zero,
+              color: Colors.white,
+              child: !isAppOffline ? (
+                Query(
+                  options: QueryOptions(document: gql(getParentCFTerms)),
+                  builder: (QueryResult result, {fetchMore, refetch}) {
+                    if (result.isLoading || result.hasException) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    List items = result.data?["entityQuery"]["items"] ?? [];
                     return SizedBox(
-                      width: double.infinity, // Make each item take full width
-                      child: TermAccordion(
-                        termId: term["id"].toString(),
-                        fallbackLabel: title,
-                        isEnglishUS: widget.isEnglishUS,
-                        locale: widget.locale,
-                        isAutoExpand: true,
-                        isOffline: isAppOffline,
-                      ),
-                    );
+                        child: ListView.builder(
+                        itemCount: items.length,
+                        scrollDirection: Axis.vertical,
+                        shrinkWrap: true,
+                        physics: ScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          var term = items[index];
+                          return Container(
+                            padding: EdgeInsets.zero,
+                            width: double.infinity, // Make each item take full width
+                            child: TermAccordion(
+                              termId: term["id"],
+                              fallbackLabel: term["label"],
+                              isEnglishUS: widget.isEnglishUS,
+                              locale: widget.locale,
+                              isAutoExpand: true,
+                              isOffline: isAppOffline,
+                            ),
+                          );
+                        },
+                    ));
                   },
-                );
-              },
+                )
+              ) : (
+                FutureBuilder(
+                  future: Offline().getCFTerms(db, '0'),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                          child: Text('Error fetching child terms'));
+                    }
+                    List items = snapshot.data ?? [];
+                    return SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.75,
+                      child: ListView.builder(
+                      itemCount: items.length,
+                      scrollDirection: Axis.vertical,
+                      shrinkWrap: true,
+                      physics: ScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        var term = items[index];
+                        var title = term.containsKey('title') ? term['title'] : term['label'];
+                        return SizedBox(
+                          width: double.infinity, // Make each item take full width
+                          child: TermAccordion(
+                            termId: term["id"].toString(),
+                            fallbackLabel: title,
+                            isEnglishUS: widget.isEnglishUS,
+                            locale: widget.locale,
+                            isAutoExpand: true,
+                            isOffline: isAppOffline,
+                          ),
+                        );
+                      },
+                    ));
+                  },
+                )
+              )
             )
-          )
+          ),
+          AllenAppFooter(
+            locale: widget.locale,
+            isEnglishUS: widget.isEnglishUS,
+          ),
         ],
+        )
       ),
       endDrawer: menu,
     );
@@ -263,53 +274,52 @@ class _TermAccordionState extends State<TermAccordion> {
 
   @override
   Widget build(BuildContext context) {
-    var widgetContent = (isAppOffline ? parseHtmlString(termContent?['body'] ?? '') : parseHtmlString(termContent?['translation']?['bodyRawField']
-    ?['getString'] ??
-        "No Content Available"));
+    var widgetContent = (isAppOffline ? parseHtmlString(termContent?['body'] ?? '') : parseHtmlString(termContent?['translation']?['bodyRawField']?['getString'] ?? ''));
     var termTitle = (isAppOffline ? (termContent?['label'] ?? termContent?['title']) : (termContent?['translation']?['titleRawField']
     ?['getString'] ??
         widget.fallbackLabel));
     mainWidget = TableRow(
         children: [
         ExpansionTile(
-      title: isLoading
-          ? Text("Loading...",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
-          : (widget.isAutoExpand ? Text('') : (Text(termTitle,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
-      children: [
-        if (isLoading)
-          Center(child: CircularProgressIndicator())
-        else ...[
-          if (termContent != null)
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
-                color: Colors.white,
-                child: SelectableAllenText(text: widgetContent, notes: userNotes, currentNodeId: termContent?['id'].toString() ?? '', isOffline: isAppOffline)
-              )
-            ),
-          if (childTerms.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.zero,
-              child: Container(
-                color: Colors.white,
-                child: Column(
-                children: childTerms.map((child) {
-                  //recursively renders current widget/component to display child term content
-                  var label = child.containsKey('label') ? child['label'] : child['title'];
-                  return TermAccordion(
+          tilePadding: const EdgeInsets.only(left: 8.0),
+          title: isLoading
+            ? Text("Loading...",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
+            : (widget.isAutoExpand ? Text('') : (Text(termTitle,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
+          children: [
+          if (isLoading)
+            Center(child: CircularProgressIndicator())
+          else ...[
+            if (termContent != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Container(
+                  color: Colors.white,
+                  child: SelectableAllenText(text: widgetContent, notes: userNotes, currentNodeId: termContent?['id'].toString() ?? '', isOffline: isAppOffline)
+                )
+              ),
+            if (childTerms.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.zero,
+                child: Container(
+                  color: Colors.white,
+                  child: Column(
+                  children: childTerms.map((child) {
+                    //recursively renders current widget/component to display child term content
+                    var label = child.containsKey('label') ? child['label'] : child['title'];
+                    return TermAccordion(
                       termId: child["id"].toString(),
                       fallbackLabel: label,
                       isEnglishUS: widget.isEnglishUS,
                       locale: widget.locale,
                       isOffline: isAppOffline,
-                  );
-                }).toList(),
-              ),
-            )),
+                    );
+                  }).toList(),
+                ),
+              )),
+          ],
         ],
-      ],
     )]);
     if (widget.isAutoExpand) {
       mainWidget = TableRow(
@@ -319,9 +329,9 @@ class _TermAccordionState extends State<TermAccordion> {
           child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(left: 8.0),
             child: SelectableAllenText(
-              text: parseHtmlString(widgetContent), notes: userNotes, currentNodeId: termContent?['id'].toString() ?? '', isOffline: isAppOffline
+              text: widgetContent, notes: userNotes, currentNodeId: termContent?['id'].toString() ?? '', isOffline: isAppOffline
             ),
           ),
           if (childTerms.isNotEmpty)
@@ -346,7 +356,7 @@ class _TermAccordionState extends State<TermAccordion> {
     }
     if (widget.isAutoExpand) {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 0),
         child: Table(
           //border: TableBorder.all(),
           columnWidths: {0: FlexColumnWidth()},

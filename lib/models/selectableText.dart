@@ -268,10 +268,13 @@ class _SelectableAllenTextState extends State<SelectableAllenText> {
                 return InlineCustomWidget(child: SizedBox(height: 20, width: 24, child: IconButton(onPressed: () => {_showNote(context, element.attributes['id'])}, icon: Icon(Icons.info), iconSize: 14)));
               }
             },
+            textStyle: TextStyle(fontSize: 18),
           )
         ),
         onSelectionChanged: (text) {
-          selectedText = text?.plainText ?? '';
+          setState(() {
+            selectedText = text?.plainText ?? '';
+          });
         },
         contextMenuBuilder: (
           context,

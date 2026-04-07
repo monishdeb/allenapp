@@ -23,13 +23,14 @@ class AllenAppFooterState extends State<AllenAppFooter> {
 
   @override
   Widget build(BuildContext context) {
+    var iconcode = ((widget.locale ?? '').contains('EN') ? (widget.locale == 'EN' ? 'us' : 'gb') : widget.locale.toLowerCase());
     return Footer(
       padding: EdgeInsets.all(10.0),
       child: Row(
         children: [
-          Text('© 2014 - 2025 Claudia Kay Allen'),
+          Text('© 2014 - 2026 Claudia Kay Allen'),
           Spacer(),
-          Image.asset('icons/flags/png100px/' + (widget.locale == 'EN_US' ? 'us' : 'gb') + '.png', package: 'country_icons', height: 15),
+          Image.asset('icons/flags/png100px/$iconcode.png', package: 'country_icons', height: 15),
         ]
       ),
     );

@@ -100,15 +100,11 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     var appbar = AppBar(
-         title: Text(
-           'Allen App',
-           style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-         ),
-         centerTitle: true,
-         actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))],
+       title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+       actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))]
     );
     if (isLoading) {
-      return loadingScreen();
+      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     final client = GraphQLProvider.of(context).value;
     return Scaffold(
@@ -156,11 +152,11 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                          builder: (context, nodeSnapshot) {
                            if (nodeSnapshot.connectionState ==
                              ConnectionState.waiting) {
-                             return SizedBox.shrink();
+                             return Center(child: CircularProgressIndicator());
                            }
                            if (nodeSnapshot.hasError ||
                              nodeSnapshot.data?.hasException == true) {
-                             return SizedBox.shrink();
+                             return Center(child: CircularProgressIndicator());
                            }
                            final node = (nodeSnapshot.data?.data?['entityQuery']
                              ['items'] as List?)
@@ -182,9 +178,10 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                            }
                            if (contentType == 'A') {
                              return ExpansionTile(
+                               tilePadding: EdgeInsets.only(left: 8.0),
                                leading: Icon(Icons.keyboard_arrow_down), // Down arrow on the left
                                trailing: SizedBox.shrink(),
-                               title: Text(label),
+                               title: Text(label, style: TextStyle(fontSize: 18)),
                                children: [
                                  Padding(
                                    padding: const EdgeInsets.all(8.0),
@@ -207,7 +204,8 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                                  ),
                                  Expanded(
                                    child: ListTile(
-                                     title: Text(label),
+                                     contentPadding: EdgeInsets.only(left: 8.0),
+                                     title: Text(label, style: TextStyle(fontSize: 18)),
                                      onTap: () {
                                        Navigator.push(
                                          context,
@@ -286,9 +284,10 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                           }
                           if (contentType == 'A') {
                             return ExpansionTile(
+                              tilePadding: EdgeInsets.only(left: 8.0),
                               leading: Icon(Icons.keyboard_arrow_down), // Down arrow on the left
                               trailing: SizedBox.shrink(),
-                              title: Text(label),
+                              title: Text(label, style: TextStyle(fontSize: 18)),
                               children: [
                                 Padding(
                                   padding: const EdgeInsets.all(8.0),
@@ -309,7 +308,8 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                                 ),
                                 Expanded(
                                   child: ListTile(
-                                    title: Text(label),
+                                    contentPadding: EdgeInsets.only(left: 8.0),
+                                    title: Text(label, style: TextStyle(fontSize: 18)),
                                     onTap: () {
                                       Navigator.push(
                                         context,
@@ -391,7 +391,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                   ),
                   Expanded(
                     child: ListTile(
-                      title: Text(label),
+                      title: Text(label, style: TextStyle(fontSize: 18)),
                       onTap: () {
                         Navigator.push(
                           context,

@@ -1,10 +1,8 @@
 import 'package:allenapp/services/Offline.dart';
 import 'package:flutter_launcher_icons/android.dart';
-
 import '../models/footer.dart';
 import '../models/menu.dart';
 import 'package:flutter/material.dart';
-import 'package:footer/footer_view.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
 import 'activitydetail.dart';
@@ -123,142 +121,159 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
   @override
   Widget build(BuildContext context) {
     var menu = Menu(scaffoldKey: _scaffoldState, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Text(
-         'Allen App',
-         style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-       ),
-       centerTitle: true
-    );
+    var appbar = AppBar(title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50));
     return Scaffold(
       endDrawer: menu,
+      backgroundColor: Colors.grey[200],
       appBar: appbar,
-      body: Padding(
-        padding: const EdgeInsets.all(0),
-        child: FooterView(footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          Container(
-            color: Colors.grey[800],
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            height: 56, // Same as AppBar height
-            alignment: Alignment.center,
-            child: Text(
-              widget.label,
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              color: Colors.grey[800],
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              height: 56, // Same as AppBar height
+              alignment: Alignment.center,
+              child: Text(
+                widget.label,
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
-          Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Container(
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child:
+                Container(
                 color: Colors.white,
-                child: SelectableAllenText(text: parseHtmlString(widget.body), notes: [], isOffline: isAppOffline),
-              )
-          ),
-          SingleChildScrollView(
-          child: activities.isEmpty
-              ? Center(child: CircularProgressIndicator())
-              : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: activities
-                  .where((activity) => !(activity['label']
-                    ?.toString()
-                    .contains('Scoring Criterion') ??
-                    false))
-                  .map((activity) {
-                    String label = '';
-                    String body = '';
-                    String decisionLabel = '';
-                    String decisionBody = '';
-                    String decisionTaxonomy = '';
-                    String decisionTarget = '';
-                    String activityId = '';
-                    if (!isAppOffline) {
-                      var activityDetails = activity['translation'];
-                      label = activity['label'] ?? 'No label';
-                      body =
-                        activityDetails['bodyRawField']?['getString'] ??
-                          'No body';
-                      decisionLabel =
-                        activityDetails['fieldDecisionLabelRawField']
-                          ?['getString'] ?? 'No decision label';
-                      decisionBody =
-                        activityDetails['fieldDecisionBodyRawField']
-                          ?['getString'] ?? 'No decision body';
-                      activityId =
-                        activityDetails['fieldActivityIdRawField']?['getString'] ??
-                          '';
-                      decisionTarget =
-                        activityDetails['fieldDecisionTargetRawField']?['getString'] ??
-                          'No decision target';
-                      decisionTaxonomy =
-                        activityDetails['fieldDecisionTaxonomyRawField']
-                          ?['getString'] ?? 'No decision taxonomy';
-                    }
-                    else {
-                      label = ((activity['label'] ?? '') == '' ? '' : activity['label']);
-                      body = ((activity['body'] ?? '')  == '' ? '' : activity['body']);
-                      decisionTarget = ((activity['decision_targets'] ?? '')  == '' ? '' : activity['decision_targets']);
-                      decisionBody = ((activity['decision_body'] ?? '')  == '' ? '' : activity['decision_body']);
-                      decisionTaxonomy = ((activity['decision_taxonomy_ids'] ?? '') == '' ? '' : activity['decision_taxonomy_ids']);
-                      decisionLabel = ((activity['decision_labels'] ?? '') == '' ? '' : activity['decision_labels']);
-                      activityId = ((activity['activity_id'] ?? '') == '' ?  '' : (activity['activity_id'] ?? ''));
-                    }
-
-                    List<String> parts = activityId.split('.');
-
-                    if (activityId.split('.').length > 2) {
-                     return SizedBox.shrink();
-                    }
-
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ActivityDetailsScreen(
-                              nodeId: activity['id'].toString() ?? '',
-                              label: label,
-                              body: body,
-                              decisionBody: decisionBody,
-                              activityId: activityId,
-                              decisionLabel: decisionLabel,
-                              decisionTarget: decisionTarget,
-                              decisionTaxonomy: decisionTaxonomy,
-                              isEnglishUS: widget.isEnglishUS,
-                              locale: widget.locale,
-                              isOffline: isAppOffline,
-                            ),
-                          ),
-                        );
-                      },
+                child: Column(
+                children: [
+                  Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Container(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                 Icons.arrow_forward_ios_outlined,
-                                 size: 18.0,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                parseHtmlString(label),
-                                style: TextStyle(
-                                    fontSize: 18
+                        color: Colors.white,
+                        child: SelectableAllenText(text: parseHtmlString(widget.body), notes: [], isOffline: isAppOffline),
+                      )
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Container(
+                      color: Colors.white,
+                      child: activities.isEmpty
+                      ? Center(child: CircularProgressIndicator())
+                      : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: activities
+                          .where((activity) => !(activity['label']
+                            ?.toString()
+                            .contains('Scoring Criterion') ??
+                            false))
+                          .map((activity) {
+                            String label = '';
+                            String body = '';
+                            String decisionLabel = '';
+                            String decisionBody = '';
+                            String decisionTaxonomy = '';
+                            String decisionTarget = '';
+                            String activityId = '';
+                            if (!isAppOffline) {
+                              var activityDetails = activity['translation'];
+                              label = activity['label'] ?? 'No label';
+                              body =
+                                activityDetails['bodyRawField']?['getString'] ??
+                                  'No body';
+                              decisionLabel =
+                                activityDetails['fieldDecisionLabelRawField']
+                                  ?['getString'] ?? 'No decision label';
+                              decisionBody =
+                                activityDetails['fieldDecisionBodyRawField']
+                                  ?['getString'] ?? 'No decision body';
+                              activityId =
+                                activityDetails['fieldActivityIdRawField']?['getString'] ??
+                                  '';
+                              decisionTarget =
+                                activityDetails['fieldDecisionTargetRawField']?['getString'] ??
+                                  'No decision target';
+                              decisionTaxonomy =
+                                activityDetails['fieldDecisionTaxonomyRawField']
+                                  ?['getString'] ?? 'No decision taxonomy';
+                            }
+                            else {
+                              label = ((activity['label'] ?? '') == '' ? '' : activity['label']);
+                              body = ((activity['body'] ?? '')  == '' ? '' : activity['body']);
+                              decisionTarget = ((activity['decision_targets'] ?? '')  == '' ? '' : activity['decision_targets']);
+                              decisionBody = ((activity['decision_body'] ?? '')  == '' ? '' : activity['decision_body']);
+                              decisionTaxonomy = ((activity['decision_taxonomy_ids'] ?? '') == '' ? '' : activity['decision_taxonomy_ids']);
+                              decisionLabel = ((activity['decision_labels'] ?? '') == '' ? '' : activity['decision_labels']);
+                              activityId = ((activity['activity_id'] ?? '') == '' ?  '' : (activity['activity_id'] ?? ''));
+                            }
+
+                            List<String> parts = activityId.split('.');
+
+                            if (activityId.split('.').length > 2) {
+                             return SizedBox.shrink();
+                            }
+
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ActivityDetailsScreen(
+                                      nodeId: activity['id'].toString() ?? '',
+                                      label: label,
+                                      body: body,
+                                      decisionBody: decisionBody,
+                                      activityId: activityId,
+                                      decisionLabel: decisionLabel,
+                                      decisionTarget: decisionTarget,
+                                      decisionTaxonomy: decisionTaxonomy,
+                                      isEnglishUS: widget.isEnglishUS,
+                                      locale: widget.locale,
+                                      isOffline: isAppOffline,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 16.0, top: 16.0, bottom: 16.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          parseHtmlString(label),
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              ),
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.arrow_forward_ios_outlined,
+                                        size: 16.0,
+                                      ),
+                                      //HtmlWidget(
+                                        //parseHtmlString(body),
+                                      //),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              //HtmlWidget(
-                                //parseHtmlString(body),
-                              //),
-                            ],
-                          ),
+                            );
+                          }).toList(),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-        )]),
+                      )
+                    )
+                  ]
+                )
+              )
+            ),
+            AllenAppFooter(
+              locale: widget.locale,
+              isEnglishUS: widget.isEnglishUS,
+            ),
+          ]
+        ),
       ),
     );
   }

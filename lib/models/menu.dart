@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 import '../screens/language.dart';
 import '../screens/search.dart';
 import '../screens/Notes.dart';
-import '../services/Offline.dart';
-import '../services/auth.dart';
-import '../services/Offline.dart';
 
 class Menu extends StatelessWidget {
   final GlobalKey<ScaffoldState> scaffoldKey;
