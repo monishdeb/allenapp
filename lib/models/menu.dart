@@ -25,6 +25,7 @@ class Menu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isAppOffline = isOffline;
+    const double drawerItemSpacing = 40;
     final double drawerContentHeight =
         MediaQuery.of(context).size.height * 0.65;
     return Drawer(
@@ -61,7 +62,7 @@ class Menu extends StatelessWidget {
                         locale: locale,
                         isOffline: isAppOffline,
                       ),
-                      SizedBox(height: 40),
+                      SizedBox(height: drawerItemSpacing),
                       GestureDetector(
                         onTap: () => Navigator.push(
                           context,
@@ -79,7 +80,7 @@ class Menu extends StatelessWidget {
                           ),
                         ])
                       ),
-                      SizedBox(height: 40),
+                      SizedBox(height: drawerItemSpacing),
                       GestureDetector(
                         onTap: () => Navigator.push(
                           context,

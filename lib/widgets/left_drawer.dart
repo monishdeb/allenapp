@@ -48,7 +48,7 @@ class LeftNavDrawer extends StatelessWidget {
                     Container(
                       color: Colors.red[700],
                       width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      padding: const EdgeInsets.all(16),
                       child: const Text(
                         'Menu',
                         style: TextStyle(
