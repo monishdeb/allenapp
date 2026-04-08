@@ -143,24 +143,35 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final double drawerContentHeight =
+        MediaQuery.of(context).size.height * 0.65;
     return Drawer(
-      child: Container(
-        color: Colors.white,
-        child: ListView(
-          children: [
-            Container(
-              color: Colors.red[700],
-              padding:
-                  const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              child: const Text(
-                'Allen App Settings',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: Column(
+        children: [
+          // Transparent space so the AppBar remains visible behind the drawer
+          SizedBox(height: kToolbarHeight),
+          // Drawer content constrained to ~65% of screen height
+          SizedBox(
+            height: drawerContentHeight,
+            child: Container(
+              color: Colors.white,
+              child: ListView(
+                children: [
+                  Container(
+                    color: Colors.red[700],
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
+                    child: const Text(
+                      'Allen App Settings',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
             const SizedBox(height: 16),
             // Log out button
             Padding(
@@ -292,9 +303,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

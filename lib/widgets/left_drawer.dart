@@ -26,103 +26,126 @@ class LeftNavDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double drawerContentHeight =
+        MediaQuery.of(context).size.height * 0.65;
     return Drawer(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            color: Colors.red[700],
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
-            child: const Text(
-              'Menu',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            title: const Text(
-              'Conceptual Framework',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              ConceptualFrameworksScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text(
-              'Allen Cognitive Levels',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              TaxonomyHierarchyScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text(
-              'ACLS-6 Activities',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              AclsTermsScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text(
-              'Search',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.search, size: 16),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => Scaffold(
-                    appBar: AppBar(
+          // Transparent space so the AppBar remains visible behind the drawer
+          SizedBox(height: kToolbarHeight),
+          // Drawer content constrained to ~65% of screen height
+          SizedBox(
+            height: drawerContentHeight,
+            child: Container(
+              color: Colors.white,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      color: Colors.red[700],
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      child: const Text(
+                        'Menu',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      title: const Text(
+                        'Conceptual Framework',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      trailing:
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => _navigate(
+                        context,
+                        ConceptualFrameworksScreen(
+                          isEnglishUS: isEnglishUS,
+                          locale: locale,
+                          isOffline: isOffline,
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text(
+                        'Allen Cognitive Levels',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      trailing:
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => _navigate(
+                        context,
+                        TaxonomyHierarchyScreen(
+                          isEnglishUS: isEnglishUS,
+                          locale: locale,
+                          isOffline: isOffline,
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text(
+                        'ACLS-6 Activities',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      trailing:
+                          const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => _navigate(
+                        context,
+                        AclsTermsScreen(
+                          isEnglishUS: isEnglishUS,
+                          locale: locale,
+                          isOffline: isOffline,
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
                       title: const Text(
                         'Search',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(fontSize: 16),
                       ),
+                      trailing: const Icon(Icons.search, size: 16),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => Scaffold(
+                              appBar: AppBar(
+                                title: const Text(
+                                  'Search',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              body: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: CustomSearchBar(
+                                  isEnglishUS: isEnglishUS,
+                                  locale: locale,
+                                  isOffline: isOffline,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    body: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: CustomSearchBar(
-                        isEnglishUS: isEnglishUS,
-                        locale: locale,
-                        isOffline: isOffline,
-                      ),
-                    ),
-                  ),
+                    const Divider(height: 1),
+                  ],
                 ),
-              );
-            },
+              ),
+            ),
           ),
-          const Divider(height: 1),
         ],
       ),
     );
