@@ -116,6 +116,7 @@ class _HomePageState extends State<HomePage> {
           locale: widget.locale,
           isEnglishUS: widget.isEnglishUS,
           isOffline: isAppOffline,
+          currentScreen: 'home',
         ),
         body: SingleChildScrollView(
           child: Column(

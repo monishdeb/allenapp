@@ -110,10 +110,7 @@ class _NotesPageState extends State<NotesPage> {
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
-        title: Text(
-          'Saved Notes',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        )
+        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50)
       ),
       endDrawer: menu,
       body: FooterView(

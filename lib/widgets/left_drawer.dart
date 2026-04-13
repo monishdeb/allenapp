@@ -8,12 +8,14 @@ class LeftNavDrawer extends StatelessWidget {
   final String locale;
   final bool isEnglishUS;
   final bool isOffline;
+  final String? currentScreen;
 
   const LeftNavDrawer({
     Key? key,
     required this.locale,
     required this.isEnglishUS,
     required this.isOffline,
+    this.currentScreen,
   }) : super(key: key);
 
   void _navigate(BuildContext context, Widget screen) {
@@ -46,6 +48,7 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
+          if (currentScreen != 'conceptual_framework')
           ListTile(
             title: const Text(
               'Conceptual Framework',
@@ -61,7 +64,9 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
+          if (currentScreen != 'conceptual_framework')
           const Divider(height: 1),
+          if (currentScreen != 'allen_cognitive_levels')
           ListTile(
             title: const Text(
               'Allen Cognitive Levels',
@@ -77,7 +82,9 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
+          if (currentScreen != 'allen_cognitive_levels')
           const Divider(height: 1),
+          if (currentScreen != 'acls6_activities')
           ListTile(
             title: const Text(
               'ACLS-6 Activities',
@@ -93,6 +100,7 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
+          if (currentScreen != 'acls6_activities')
           const Divider(height: 1),
           ListTile(
             title: const Text(
