@@ -62,25 +62,15 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
   Future<void> fetchActivities() async {
     List items = [];
     if (!isAppOffline) {
-      final GraphQLClient graphQLClient = GraphQLProvider
-          .of(context)
-          .value;
-
-      final result = await graphQLClient.query(
-        QueryOptions(document: gql(getActivities),
-            variables: {'langcode': widget.locale}),
-      );
-
-      if (result.hasException) {
-        print('Error fetching activities: ${result.exception.toString()}');
-        return;
+      var database = db;
+      if (database == null || !database.isOpen) {
+        await initDatabase(false);
       }
-
-      items = result.data?['entityQuery']['items'] ?? [];
+      else {
+        await Offline().getSourceData(database, false);
+      }
     }
-    else {
-      items = await Offline().getActivities(widget.locale, db, null);
-    }
+    items = await Offline().getActivities(widget.locale, db, null);
 
     List<Map<String, dynamic>> filteredItems = [];
 
@@ -88,13 +78,7 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
 
     for (var item in items) {
       String activityId = '';
-      if (!isAppOffline) {
-        activityId = item['fieldActivityIdRawField']?['getString'] ?? '';
-      }
-      else {
-        activityId = item['activity_id'] ?? '';
-      }
-
+      activityId = item['activity_id'] ?? '';
       if (activityId.startsWith(widget.activityId)) {
         final suffix = activityId.substring(widget.activityId.length);
 
@@ -175,37 +159,13 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
                             String decisionTaxonomy = '';
                             String decisionTarget = '';
                             String activityId = '';
-                            if (!isAppOffline) {
-                              var activityDetails = activity['translation'];
-                              label = activity['label'] ?? 'No label';
-                              body =
-                                activityDetails['bodyRawField']?['getString'] ??
-                                  'No body';
-                              decisionLabel =
-                                activityDetails['fieldDecisionLabelRawField']
-                                  ?['getString'] ?? 'No decision label';
-                              decisionBody =
-                                activityDetails['fieldDecisionBodyRawField']
-                                  ?['getString'] ?? 'No decision body';
-                              activityId =
-                                activityDetails['fieldActivityIdRawField']?['getString'] ??
-                                  '';
-                              decisionTarget =
-                                activityDetails['fieldDecisionTargetRawField']?['getString'] ??
-                                  'No decision target';
-                              decisionTaxonomy =
-                                activityDetails['fieldDecisionTaxonomyRawField']
-                                  ?['getString'] ?? 'No decision taxonomy';
-                            }
-                            else {
-                              label = ((activity['label'] ?? '') == '' ? '' : activity['label']);
-                              body = ((activity['body'] ?? '')  == '' ? '' : activity['body']);
-                              decisionTarget = ((activity['decision_targets'] ?? '')  == '' ? '' : activity['decision_targets']);
-                              decisionBody = ((activity['decision_body'] ?? '')  == '' ? '' : activity['decision_body']);
-                              decisionTaxonomy = ((activity['decision_taxonomy_ids'] ?? '') == '' ? '' : activity['decision_taxonomy_ids']);
-                              decisionLabel = ((activity['decision_labels'] ?? '') == '' ? '' : activity['decision_labels']);
-                              activityId = ((activity['activity_id'] ?? '') == '' ?  '' : (activity['activity_id'] ?? ''));
-                            }
+                            label = ((activity['label'] ?? '') == '' ? '' : activity['label']);
+                            body = ((activity['body'] ?? '')  == '' ? '' : activity['body']);
+                            decisionTarget = ((activity['decision_targets'] ?? '')  == '' ? '' : activity['decision_targets']);
+                            decisionBody = ((activity['decision_body'] ?? '')  == '' ? '' : activity['decision_body']);
+                            decisionTaxonomy = ((activity['decision_taxonomy_ids'] ?? '') == '' ? '' : activity['decision_taxonomy_ids']);
+                            decisionLabel = ((activity['decision_labels'] ?? '') == '' ? '' : activity['decision_labels']);
+                            activityId = ((activity['activity_id'] ?? '') == '' ?  '' : (activity['activity_id'] ?? ''));
 
                             List<String> parts = activityId.split('.');
 

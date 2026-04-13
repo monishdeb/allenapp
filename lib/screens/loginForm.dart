@@ -7,6 +7,7 @@ import '../services/query.dart';
 import 'package:flutter_screen_lock/flutter_screen_lock.dart';
 import 'login.dart';
 import 'otpRequestScreen.dart';
+import 'loadingScreen.dart';
 
 class LoginForm extends StatefulWidget {
   final FormData formData;
@@ -21,11 +22,20 @@ class LoginForm extends StatefulWidget {
 class _LoginFormState extends State<LoginForm> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _obscureText = true;
+  bool loading = false;
+
+  @override @override
+  void initState() {
+    super.initState();
+    loading = false;
+  }
 
   @override
   Widget build(BuildContext context) {
     FormData formData = widget.formData;
-
+    if (loading) {
+      return loadingScreen(locale: widget.locale, isEnglishUS: widget.isEnglishUS);
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
@@ -102,6 +112,9 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                         ),
                         onPressed: () async {
+                          setState(() {
+                            loading = true;
+                          });
                           widget.submitFunction(context, true);
                         },
                         child: const Text(

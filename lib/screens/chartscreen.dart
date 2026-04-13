@@ -49,30 +49,15 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   // queries for parent allen cognitive level taxonomy terms
   Future<void> fetchParentTerms() async {
     parentTerms = [];
-    if (isAppOffline) {
-      var database = db;
-      final parentResult = await Offline().getRootTaxonomy(database, 'allen_cognitive_levels');
-      parentTerms = List<Term>.from((parentResult ?? []).map((item) => Term.fromMap(item, isAppOffline)));
+    var database = db;
+    if (database == null || !database.isOpen) {
+      await initDatabase(false);
     }
     else {
-      final GraphQLClient graphQLClient = client.value;
-
-      final parentResult = await graphQLClient.query(
-        QueryOptions(document: gql(getParentTerms)),
-      );
-      if (parentResult.hasException) {
-        print(
-            "Error fetching parent terms: ${parentResult.exception
-                .toString()}");
-        print(
-            "GraphQL Error Details: ${parentResult.exception?.graphqlErrors}");
-        return;
-      }
-
-      parentTerms = List<Term>.from(
-          (parentResult.data?['entityQuery']['items'] ?? [])
-              .map((item) => Term.fromMap(item, isAppOffline)));
+      await Offline().getSourceData(database, false);
     }
+    final parentResult = await Offline().getRootTaxonomy(database, 'allen_cognitive_levels');
+    parentTerms = List<Term>.from((parentResult ?? []).map((item) => Term.fromMap(item, isAppOffline)));
     List<String> parentIds = parentTerms
         .map((t) => t.id)
         .toList(); // adds the ids of the parent terms into list
@@ -84,23 +69,12 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   Future<void> fetchChildTerms(List<String> parentIds) async {
     List items = [];
     if (parentIds.isEmpty) return;
-    if (isAppOffline) {
-      var database = db;
-      for (var parentId in parentIds) {
-        var parentResult = await Offline().getACLTaxonomy(parentId, null, database);
-        items = items + parentResult;
-      }
-    }
-    else {
-      final GraphQLClient graphQLClient = client.value;
-      final childResult = await graphQLClient.query(
-        QueryOptions(
-            document: gql(getChildTerms), variables: {'parentIds': parentIds}),
-      );
-      items = childResult.data?['entityQuery']['items'] ?? [];
+    var database = db;
+    for (var parentId in parentIds) {
+      var parentResult = await Offline().getACLTaxonomy(parentId, null, database);
+      items = items + parentResult;
     }
     List<Term> fetchedChildTerms = [];
-
     RegExp regExp = RegExp(r'^(\d+)\s([LH])$');
 
     for (var item in items) {
@@ -138,22 +112,12 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
 
   // fetches mode terms given child term ids from above function
   Future<void> fetchModeTerms(List<String> childIds) async {
-    List items = [];
-    final GraphQLClient graphQLClient = client.value;
     var database = db;
+    List items = [];
     if (childIds.isEmpty) return;
-    if (isAppOffline) {
-      for (var childId in childIds) {
-        var modeResult = await Offline().getACLTaxonomy(childId, null, database);
-        items = items + modeResult;
-      }
-    }
-    else {
-      final modeResult = await graphQLClient.query(
-        QueryOptions(
-            document: gql(getChildTerms), variables: {'parentIds': childIds}),
-      );
-      items = modeResult.data?['entityQuery']['items'] ?? [];
+    for (var childId in childIds) {
+      var modeResult = await Offline().getACLTaxonomy(childId, null, database);
+      items = items + modeResult;
     }
     List<Term> fetchedModeTerms = [];
 
@@ -164,20 +128,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
       // once it finds the umbrella terms, queries for the child terms under that to find the actual mode terms
       List childItems = [];
       if (term.label.contains('M')) {
-        if (isAppOffline) {
-          childItems = await Offline().getACLTaxonomy(term.id, null, database);
-        }
-        else {
-          final childResult = await graphQLClient.query(
-            QueryOptions(
-              document: gql(getChildTerms),
-              variables: {
-                'parentIds': [term.id]
-              },
-            ),
-          );
-          childItems = childResult.data?['entityQuery']['items'] ?? [];
-        }
+        childItems = await Offline().getACLTaxonomy(term.id, null, database);
         for (var childItem in childItems) {
           Term childTerm = Term.fromMap(childItem, isAppOffline);
           childTerm.label = childTerm.label.substring(childTerm.label.length -
@@ -217,7 +168,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            TaxonomyDetailScreen(id: term.id, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, siblings: siblings ?? {}),
+            TaxonomyDetailScreen(id: term.id.toString(), isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, siblings: siblings ?? {}),
       ),
     );
   }
@@ -258,196 +209,195 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
           children: [
             // Title bar
             Container(
-                color: Colors.grey[800],
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                height: 56, // Same as AppBar height
-                alignment: Alignment.center,
-                child: Text(
-                  'Allen Cognitive Levels',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+              color: Colors.grey[800],
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              height: 56, // Same as AppBar height
+              alignment: Alignment.center,
+              child: Text(
+                'Allen Cognitive Levels',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                child: Container(
-                  color: Colors.white,
-                  child: SizedBox(
-                    height: 610,
-                    child: Center(
-                      child: SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.95,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // LEFT COLUMN — SMALL (1–6)
-                            SizedBox(
-                              width: 100,
-                              child: Column(
-                                children: List.generate(6, (index) {
-                                  if (count1 < parentTerms.length) {
-                                    Term term = parentTerms[count1];
-                                    count1++;
-                                    return Table(
-                                      border: TableBorder.all(),
-                                      columnWidths: const {
-                                        0: FlexColumnWidth(1),
-                                      },
-                                      children: [
-                                        TableRow(
-                                          children: [
-                                            GestureDetector(
-                                              onTap: () => navigateToDetail(context, term),
-                                              child: Container(
-                                                height: 100,
-                                                alignment: Alignment.center,
-                                                color: Color(
-                                                  int.parse('0xFF${term.colour.substring(1)}'),
-                                                ),
-                                                child: Text(
-                                                  term.label,
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    );
-                                  } else {
-                                    return const SizedBox.shrink();
-                                  }
-                                }),
-                              ),
-                            ),
-                            // RIGHT COLUMN — WIDE (L / H / Modes)
-                            Expanded(
-                              child: Column(
-                                children: List.generate(11, (index) {
-                                  if (index == 10) {
-                                    Term term = (count2 < childTerms.length)
-                                        ? childTerms[count2++]
-                                        : Term(id: '', label: 'N/A', colour: '#FFFFFF');
-                                    return Table(
-                                      border: TableBorder.all(),
-                                      columnWidths: const {0: FlexColumnWidth()},
-                                      children: [
-                                        TableRow(
-                                          children: [
-                                            GestureDetector(
-                                              onTap: () => navigateToDetail(context, term, siblings: siblings),
-                                              child: Container(
-                                                height: 100,
-                                                alignment: Alignment.center,
-                                                color: Color(
-                                                  int.parse('0xFF${term.colour.substring(1)}'),
-                                                ),
-                                                child: Text(
-                                                  term.label,
-                                                  textAlign: TextAlign.center,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    );
-                                  }
-
-                                  List<Widget> columns = [];
-                                  String? currentKey;
-                                  int columnCount = index.isEven ? 2 : 5;
-
-                                  for (int colIndex = 0; colIndex < columnCount; colIndex++) {
-                                    Term term;
-                                    if (index.isEven) {
-                                      // Use childTerms for even index
-                                      term = (count2 < childTerms.length) ? childTerms[count2++] : childTerms.last;
-
-                                      // Set current key
-                                      currentKey = term.label;
-
-                                      // Safely initialize inner map only if not already present
-                                      siblings.putIfAbsent(term.label[0], () => <String, String>{});
-                                      siblings[term.label[0]]![term.label] = term.id;
-                                      siblings.putIfAbsent(currentKey, () => <String, String>{});
-                                    } else {
-                                      // Use modeTerms for odd index
-                                      term = (count3 < modeTerms.length) ? modeTerms[count3++] : modeTerms.last;
-
-                                      // Safely add to inner map
-                                      if (term.label.isNotEmpty) {
-                                        String parentLevel;
-                                        if (colIndex < 3) {
-                                          parentLevel = term.label[0] + ' L';
-                                        }
-                                        else {
-                                          parentLevel = term.label[0] + ' H';
-                                        }
-                                        // Ensure inner map exists
-                                        siblings.putIfAbsent(parentLevel, () => <String, String>{});
-                                        siblings[parentLevel]![term.label] = term.id;
-                                      }
-                                    }
-
-                                    columns.add(
-                                      GestureDetector(
-                                        onTap: () => navigateToDetail(context, term, siblings: siblings),
-                                        child: Container(
-                                          height: 50,
-                                          alignment: Alignment.center,
-                                          color: Color(
-                                            int.parse('0xFF${term.colour.substring(1)}'),
-                                          ),
-                                          child: Text(
-                                            term.label,
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-
-
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+              child: Container(
+                color: Colors.white,
+                child: SizedBox(
+                  height: 610,
+                  child: Center(
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.95,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // LEFT COLUMN — SMALL (1–6)
+                          SizedBox(
+                            width: 100,
+                            child: Column(
+                              children: List.generate(6, (index) {
+                                if (count1 < parentTerms.length) {
+                                  Term term = parentTerms[count1];
+                                  count1++;
                                   return Table(
                                     border: TableBorder.all(),
-                                    columnWidths: columnCount == 2
-                                        ? const {
-                                            0: FlexColumnWidth(3),
-                                            1: FlexColumnWidth(2),
-                                          }
-                                        : {
-                                            for (int i = 0; i < columnCount; i++)
-                                              i: const FlexColumnWidth(),
-                                          },
+                                    columnWidths: const {
+                                      0: FlexColumnWidth(1),
+                                    },
                                     children: [
-                                      TableRow(children: columns),
+                                      TableRow(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () => navigateToDetail(context, term),
+                                            child: Container(
+                                              height: 100,
+                                              alignment: Alignment.center,
+                                              color: Color(
+                                                int.parse('0xFF${term.colour.substring(1)}'),
+                                              ),
+                                              child: Text(
+                                                term.label,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   );
-                                }),
-                              ),
+                                } else {
+                                  return const SizedBox.shrink();
+                                }
+                              }),
                             ),
+                          ),
+                          // RIGHT COLUMN — WIDE (L / H / Modes)
+                          Expanded(
+                            child: Column(
+                              children: List.generate(11, (index) {
+                                if (index == 10) {
+                                  Term term = (count2 < childTerms.length)
+                                    ? childTerms[count2++]
+                                    : Term(id: '', label: 'N/A', colour: '#FFFFFF');
+                                  return Table(
+                                    border: TableBorder.all(),
+                                    columnWidths: const {0: FlexColumnWidth()},
+                                    children: [
+                                      TableRow(
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () => navigateToDetail(context, term, siblings: siblings),
+                                            child: Container(
+                                              height: 100,
+                                              alignment: Alignment.center,
+                                              color: Color(
+                                                int.parse('0xFF${term.colour.substring(1)}'),
+                                              ),
+                                              child: Text(
+                                                term.label,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                }
 
-                          ],
-                        )
+                                List<Widget> columns = [];
+                                String? currentKey;
+                                int columnCount = index.isEven ? 2 : 5;
+
+                                for (int colIndex = 0; colIndex < columnCount; colIndex++) {
+                                  Term term;
+                                  if (index.isEven) {
+                                    // Use childTerms for even index
+                                    term = (count2 < childTerms.length) ? childTerms[count2++] : childTerms.last;
+
+                                    // Set current key
+                                    currentKey = term.label;
+
+                                    // Safely initialize inner map only if not already present
+                                    siblings.putIfAbsent(term.label[0], () => <String, String>{});
+                                    siblings[term.label[0]]![term.label] = term.id;
+                                    siblings.putIfAbsent(currentKey, () => <String, String>{});
+                                  } else {
+                                    // Use modeTerms for odd index
+                                    term = (count3 < modeTerms.length) ? modeTerms[count3++] : modeTerms.last;
+
+                                    // Safely add to inner map
+                                    if (term.label.isNotEmpty) {
+                                      String parentLevel;
+                                      if (colIndex < 3) {
+                                        parentLevel = term.label[0] + ' L';
+                                      }
+                                      else {
+                                        parentLevel = term.label[0] + ' H';
+                                      }
+                                      // Ensure inner map exists
+                                      siblings.putIfAbsent(parentLevel, () => <String, String>{});
+                                      siblings[parentLevel]![term.label] = term.id;
+                                    }
+                                  }
+
+                                  columns.add(
+                                    GestureDetector(
+                                      onTap: () => navigateToDetail(context, term, siblings: siblings),
+                                      child: Container(
+                                        height: 50,
+                                        alignment: Alignment.center,
+                                        color: Color(
+                                          int.parse('0xFF${term.colour.substring(1)}'),
+                                        ),
+                                        child: Text(
+                                          term.label,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                return Table(
+                                  border: TableBorder.all(),
+                                  columnWidths: columnCount == 2
+                                    ? const {
+                                      0: FlexColumnWidth(3),
+                                      1: FlexColumnWidth(2),
+                                    }
+                                    : {
+                                      for (int i = 0; i < columnCount; i++)
+                                        i: const FlexColumnWidth(),
+                                    },
+                                  children: [
+                                    TableRow(children: columns),
+                                  ],
+                                );
+                              }),
+                            ),
+                          ),
+
+                        ],
                       )
-                    ),
-                  )
+                    )
+                  ),
                 )
-              ),
-              // Footer now scrolls with content (no whitespace EVER)
-              AllenAppFooter(
-                locale: widget.locale,
-                isEnglishUS: widget.isEnglishUS,
-              ),
-            ]
-          )
-        ),
+              )
+            ),
+            // Footer now scrolls with content (no whitespace EVER)
+            AllenAppFooter(
+              locale: widget.locale,
+              isEnglishUS: widget.isEnglishUS,
+            ),
+          ]
+        )
+      ),
     );
   }
 }

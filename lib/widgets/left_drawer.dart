@@ -26,18 +26,21 @@ class LeftNavDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
+    return Padding(
+    padding: const EdgeInsets.only(top: 110),
+    child: Drawer(
+      child: Container(
+      color: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        //crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            color: Colors.red[700],
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 48, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: const Text(
               'Menu',
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.red,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -124,7 +127,7 @@ class LeftNavDrawer extends StatelessWidget {
           ),
           const Divider(height: 1),
         ],
-      ),
-    );
+      )),
+    ));
   }
 }

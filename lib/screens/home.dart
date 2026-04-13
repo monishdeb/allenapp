@@ -39,7 +39,7 @@ class _HomePageState extends State<HomePage> {
 
   void _onChangeOffline(bool? isOffline) async {
     setState(() => isLoading = true);
-    await setOfflineStatus(isOffline ?? false, true);
+    await setOfflineStatus(isOffline ?? false, false);
     await setOfflineDate(DateTime.now().millisecondsSinceEpoch);
     setState(() {
       isAppOffline = isOffline ?? false;
@@ -72,6 +72,39 @@ class _HomePageState extends State<HomePage> {
           locale: widget.locale,
           isEnglishUS: widget.isEnglishUS,
           isOffline: isAppOffline,
+          onMoreOptionsPressed: () {
+          showGeneralDialog(
+              context: context,
+              barrierDismissible: true,
+              barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+              barrierColor: Colors.black54,
+              transitionDuration: const Duration(milliseconds: 300),
+              pageBuilder: (context, animation, secondaryAnimation) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.5,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 110), // Add top padding
+                        child: Material(
+                          borderRadius: BorderRadius.zero,
+                          child: MoreOptionsDrawer(
+                            locale: widget.locale,
+                            isOffline: isAppOffline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
         endDrawer: SettingsDrawer(
           locale: widget.locale,

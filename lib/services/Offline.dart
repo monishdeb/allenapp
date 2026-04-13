@@ -2,13 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
-
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'auth.dart';
 import 'package:http/http.dart' as http;
 import '../Env.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'query.dart';
 
 class Offline {
 
@@ -21,15 +22,17 @@ class Offline {
     }
     var database = await openDatabase(join(await getDatabasesPath(), 'allen_app.db'), version: 1,
       onCreate: (Database db, int version) async {
-        return db.execute('CREATE TABLE taxonomy (id INTEGER PRIMARY KEY, vid TEXT, parent_id INTEGER, title TEXT, weight INTEGER, colour TEXT)').then((val) async {
-          await db.execute('CREATE TABLE node (id INTEGER, node_type TEXT, title TEXT, body TEXT, content_type TEXT, langcode TEXT, activity_id INTEGER, last_updated INTEGER, PRIMARY KEY (id, langcode))');
-          await db.execute('CREATE TABLE taxonomy_node (id INTEGER PRIMARY KEY, taxonomy_id INTEGER, node_id INTEGER, langcode TEXT)');
-          await db.execute('CREATE TABLE notes (id INTEGER PRIMARY KEY, user_id INTEGER, node_id INTEGER, note TEXT, selected_text TEXT, start_position INTEGER, end_position INTEGER, is_synced INTEGER)');
-          await db.execute('CREATE TABLE activity_decision (id INTEGER PRIMARY KEY, node_id INTEGER, decision_labels TEXT, decision_targets TEXT, decision_taxonomy_ids TEXT, decision_body TEXT, last_updated INTEGER, langcode TEXT)');
+        return db.execute('CREATE TABLE taxonomy (id INTEGER PRIMARY KEY, vid TEXT, parent_id INTEGER, title TEXT, weight INTEGER, colour TEXT, current INTEGER)').then((val) async {
+          await db.execute('CREATE TABLE node (id INTEGER, node_type TEXT, title TEXT, body TEXT, content_type TEXT, langcode TEXT, activity_id INTEGER, last_updated INTEGER, current INTEGER, PRIMARY KEY (id, langcode))');
+          await db.execute('CREATE TABLE taxonomy_node (id INTEGER PRIMARY KEY, taxonomy_id INTEGER, node_id INTEGER, langcode TEXT, current INTEGER)');
+          await db.execute('CREATE TABLE notes (id INTEGER PRIMARY KEY, user_id INTEGER, node_id INTEGER, note TEXT, selected_text TEXT, start_position INTEGER, end_position INTEGER, is_synced INTEGER, upstream_id, INTEGER, current INTEGER)');
+          await db.execute('CREATE TABLE activity_decision (id INTEGER PRIMARY KEY, node_id INTEGER, decision_labels TEXT, decision_targets TEXT, decision_taxonomy_ids TEXT, decision_body TEXT, last_updated INTEGER, langcode TEXT, current INTEGER)');
         });
       },
       onOpen: (Database db) async {
         await getSourceData(db, isReOpen);
+        dbIsReady = true;
+        await setLastSyncDate(DateTime.now().millisecondsSinceEpoch);
       },
     );
     return database;
@@ -45,10 +48,13 @@ class Offline {
       await db.execute("DELETE FROM taxonomy_node");
       await db.execute("DELETE FROM activity_decision");
     }
-    else {
-      var offlineDate = await getOfflineDate() ?? 0;
-      urlParam = '?changed=' + offlineDate.toString();
+    var offlineDate = await getLastSyncDate() ?? 0;
+    var now = DateTime.now();
+    var check = now.subtract(const Duration(hours: 12));
+    if (offlineDate > check.millisecondsSinceEpoch) {
+      return;
     }
+    urlParam = '?changed=' + offlineDate.toString();
     var taxonomyResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/taxonomy-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -57,6 +63,7 @@ class Offline {
       return;
     }
     final taxonomyResponseJson = jsonDecode(taxonomyResponse.body) as List<dynamic>;
+    await db.execute("UPDATE taxonomy SET current = 0");
     for (var i = 0; i < taxonomyResponseJson.length; i++) {
       if (!isReOpen) {
         await db.delete('taxonomy',
@@ -65,7 +72,7 @@ class Offline {
         );
       }
       await db.execute(
-          'INSERT INTO taxonomy (id, vid, parent_id, title, weight, colour) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT INTO taxonomy (id, vid, parent_id, title, weight, colour, current) VALUES (?, ?, ?, ?, ?, ?, 1)',
           [
             taxonomyResponseJson[i]['id'],
             taxonomyResponseJson[i]['vid'],
@@ -75,6 +82,9 @@ class Offline {
             taxonomyResponseJson[i]['colour']
           ]);
     }
+    await db.delete('taxonomy',
+        where: 'current = 0'
+    );
     var nodeResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/node-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -83,6 +93,7 @@ class Offline {
       return;
     }
     final nodeResponseJson = jsonDecode(nodeResponse.body) as List<dynamic>;
+    await db.execute("UPDATE node SET current = 0");
     for (var i = 0; i < nodeResponseJson.length; i++) {
       if (!isReOpen) {
         await db.delete('notes',
@@ -91,7 +102,7 @@ class Offline {
         );
       }
       await db.execute(
-          'INSERT INTO node (id, node_type, title, body, langcode, content_type, activity_id, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO node (id, node_type, title, body, langcode, content_type, activity_id, last_updated, current) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
           [
             nodeResponseJson[i]['id'],
             nodeResponseJson[i]['node_type'],
@@ -103,6 +114,9 @@ class Offline {
             nodeResponseJson[i]['last_updated']
           ]);
     }
+    await db.delete('node',
+        where: 'current = 0'
+    );
     var nodeTaxonomyResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/node-taxonomy-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -110,23 +124,29 @@ class Offline {
     if (nodeTaxonomyResponse.statusCode != 200) {
       return;
     }
+    await db.execute("UPDATE taxonomy_node SET current = 0");
     final nodeTaxonomyResponseJson = jsonDecode(nodeTaxonomyResponse.body) as List<dynamic>;
     for (var i = 0; i < nodeTaxonomyResponseJson.length; i++) {
       if (!isReOpen) {
         await db.delete('taxonomy_node',
             where: 'id = ?',
-            whereArgs: [nodeTaxonomyResponseJson[i]['nid']]
+            whereArgs: [i]
         );
       }
-      await db.execute(
-          'INSERT INTO taxonomy_node (id, node_id, taxonomy_id, langcode) VALUES (?, ?, ?, ?)',
+      if (nodeTaxonomyResponseJson[i]['taxonomy_term_id'] != "null") {
+        await db.execute(
+          'INSERT INTO taxonomy_node (id, node_id, taxonomy_id, langcode, current) VALUES (?, ?, ?, ?, 1)',
           [
             i,
             nodeTaxonomyResponseJson[i]['nid'],
             nodeTaxonomyResponseJson[i]['taxonomy_term_id'],
             nodeTaxonomyResponseJson[i]['langcode']
           ]);
+      }
     }
+    await db.delete('taxonomy_node',
+        where: 'current = 0'
+    );
     var decisionResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/decison-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -134,6 +154,7 @@ class Offline {
     if (decisionResponse.statusCode != 200) {
       return;
     }
+    await db.execute("UPDATE activity_decision SET current = 0");
     final decisionResponseJson = jsonDecode(decisionResponse.body) as List<dynamic>;
     for (var i = 0; i < decisionResponseJson.length; i++) {
       if (!isReOpen) {
@@ -143,7 +164,7 @@ class Offline {
         );
       }
       await db.execute(
-          'INSERT INTO activity_decision (id, node_id, decision_labels, decision_targets, decision_taxonomy_ids, decision_body, langcode, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO activity_decision (id, node_id, decision_labels, decision_targets, decision_taxonomy_ids, decision_body, langcode, last_updated, current) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
           [
             i,
             decisionResponseJson[i]['nid'],
@@ -155,6 +176,9 @@ class Offline {
             decisionResponseJson[i]['last_updated']
           ]);
     }
+    await db.delete('activity_decision',
+        where: 'current = 0'
+    );
     var notesResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/notes-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -165,18 +189,15 @@ class Offline {
     final notesResponseJson = jsonDecode(notesResponse.body) as List<dynamic>;
     for (var i = 0; i < notesResponseJson.length; i++) {
       if (!isReOpen) {
-        await db.delete('notes',
-          where: 'is_synced = 0'
-        );
         if (notesResponseJson[i]['id'] != null) {
           await db.delete('notes',
-              where: 'id = ?',
+              where: 'upstream_id = ?',
               whereArgs: [notesResponseJson[i]['id']]
           );
         }
       }
       await db.execute(
-          'INSERT INTO notes (id, node_id, note, selected_text, start_position, end_position, is_synced) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO notes (upstream_id, node_id, note, selected_text, start_position, end_position, is_synced, current) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [
             notesResponseJson[i]['id'],
             notesResponseJson[i]['node_id'],
@@ -184,8 +205,12 @@ class Offline {
             notesResponseJson[i]['selected_text'],
             notesResponseJson[i]['note_start'],
             notesResponseJson[i]['note_end'],
+            1,
             1
           ]);
+      await db.delete('notes',
+          where: 'is_synced = 1 AND current = 0'
+      );
     }
   }
 
@@ -298,6 +323,22 @@ class Offline {
       'is_synced': 0,
     };
     var savedNote = await db?.insert('notes', values);
+    var offline = await getOfflineStatus() ?? false;
+    if (!offline) {
+      final GraphQLClient graphQLClient = client.value;
+      var mutationResult = await graphQLClient.mutate(
+        MutationOptions(document: gql(createHighlight),
+          variables: {
+            'node_id': node_id,
+            'note': note,
+            'highlighted_text': selected_text,
+            'note_start': note_start,
+            'note_end': note_end,
+         })).then((result) async {
+          await Offline().markNoteAsSynced(savedNote, db,
+            result.data?['createCustomHighlight']['customHighlight']['id'] ?? '');
+      });
+    }
     return savedNote;
   }
 
@@ -321,13 +362,19 @@ class Offline {
     return results ?? [];
   }
 
-  Future markNoteAsSynced(noteId, Database? db) async {
+  Future markNoteAsSynced(noteId, Database? db, String upstreamNodeId) async {
     await db?.update('notes', {
         'is_synced': 1,
+        'upstream_id': int.parse(upstreamNodeId),
+        'current': 1
       },
       whereArgs: [noteId],
       where: 'id = ?'
     );
+  }
+
+  Future offlineDatabaseExists() async {
+    return await databaseExists(join(await getDatabasesPath(), 'allen_app.db'));
   }
 
 }

@@ -15,30 +15,16 @@ class Term {
   // constructor to map GraphQL response object to Term object
   factory Term.fromMap(Map<String, dynamic> map, bool isOffline) {
     String termColour;
-    if (!isOffline) {
-      termColour = map['fieldLevelColourRawField']?['getString'];
-    }
-    else {
-      termColour = map['colour'] ?? '';
-    }
+    termColour = map['colour'] ?? '';
 
     // colour is defaulted to white if not found in GraphQL response
     if (termColour.isEmpty) {
       termColour = "#ffffff";
     }
-    if (isOffline) {
-      return Term(
-        id: map['id'].toString(),
-        label: map['title'].toString(),
-        colour: termColour,
-      );
-    }
-    else {
-      return Term(
-        id: map['id'] as String,
-        label: map['label'] as String,
-        colour: termColour,
-      );
-    }
+    return Term(
+      id: map['id'].toString(),
+      label: map['title'] as String,
+      colour: termColour,
+    );
   }
 }

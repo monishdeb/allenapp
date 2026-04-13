@@ -42,93 +42,37 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> getNotes() async {
+    if (!isAppOffline) {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        await initDatabase(false);
+      }
+      else {
+        await Offline().getSourceData(database, false);
+      }
+    }
     List items = [];
     setState(() {
       notes = [];
     });
-    final GraphQLClient graphQLClient = client.value;
-    if (!isAppOffline) {
-      var userId = await getUserID();
-      final result = await graphQLClient.query(
-        QueryOptions(document: gql(getUserNotes), variables: {
-          'user_id': userId
-        }),
-      );
-      if (result.hasException) {
-        print('Error fetching activities: ${result.exception.toString()}');
-        return;
-      }
-      items = result.data?['entityQuery']['items'] ?? [];
-    }
-    else {
-      items = await Offline().getAllNotes(db, widget.locale);
-    }
-
+    items = await Offline().getAllNotes(db, widget.locale);
     for (var item in items) {
       var noteId = item['id'];
-      var note = (isAppOffline ? item['note'] : item['label']);
-      var nodeId = (isAppOffline ? item['node_id'].toString() : item['nodeIdRawField']['getString']);
+      var note = item['note'];
+      var nodeId = item['node_id'].toString();
       var nodeType = '';
       var taxonomyId = '';
       var nodeBody = '';
       var nodeLabel = '';
-      if (!isAppOffline) {
-        for (var reference in item['nodeIdRawField']['entity']['referencedEntities']) {
-          if (reference['entityTypeId'] != 'node') {
-            continue;
-          }
-          if (reference['id'] == nodeId &&
-              reference['entityTypeId'] == 'node') {
-            nodeType = reference['entityBundle'];
-          }
-          var nodeField = '';
-          if (nodeType == 'web_app') {
-            nodeField = 'fieldAllenCognitiveLevelRawField';
-          }
-          if (nodeType == 'conceptual_framework') {
-            nodeField = 'fieldConceptualFrameworkRawField';
-          }
-          if (nodeType == 'acls_6_activities') {
-            nodeField = 'fieldActivityIdRawField';
-          }
-          if (nodeType == 'acls6') {
-            nodeField = 'fieldAcls6RawField';
-          }
-          if (nodeTaxonomyCache.containsKey(nodeId)) {
-            taxonomyId = nodeTaxonomyCache[nodeId] ?? '';
-          }
-          else {
-            final nodeResult = await graphQLClient.query(
-                QueryOptions(
-                    document: gql(getNode), variables: {'nodeId': nodeId})
-            );
-
-            if (!nodeResult.hasException) {
-              taxonomyId =
-              nodeResult
-                  .data?['entityQuery']['items'][0][nodeField]['getString'];
-              nodeTaxonomyCache[nodeId] = taxonomyId;
-              if (nodeType == 'acls6') {
-                nodeBodyCache[nodeId] = nodeResult
-                    .data?['entityQuery']['items'][0]['bodyRawField']['getString'];
-                nodeLabelCache[nodeId] =
-                nodeResult.data?['entityQuery']['items'][0]['label'];
-              }
-            }
-          }
-        }
+      nodeType = item['node_type'];
+      if (nodeTaxonomyCache.containsKey(noteId)) {
+        taxonomyId = nodeTaxonomyCache[nodeId] ?? '';
       }
       else {
-        nodeType = item['node_type'];
-        if (nodeTaxonomyCache.containsKey(noteId)) {
-          taxonomyId = nodeTaxonomyCache[nodeId] ?? '';
-        }
-        else {
-          taxonomyId = item['taxonomy_id'].toString();
-          nodeTaxonomyCache[nodeId] = taxonomyId;
-          nodeBodyCache[nodeId] = item['body'];
-          nodeLabelCache[nodeId] = item['title'];
-        }
+        taxonomyId = item['taxonomy_id'].toString();
+        nodeTaxonomyCache[nodeId] = taxonomyId;
+        nodeBodyCache[nodeId] = item['body'];
+        nodeLabelCache[nodeId] = item['title'];
       }
       notes.add({
         'noteId': noteId,

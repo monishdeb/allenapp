@@ -23,6 +23,7 @@ final tokenUrl = Uri.parse('https://' + drupalDomain + '/oauth/token');
 final redirectUri = 'com.biggerminds.allenapp://oauth2redirect';
 final customUriScheme = 'com.biggerminds.allenapp';
 Database ?db;
+bool dbIsReady = false;
 Future<void> saveToken(String token, String key) async {
   await storage.write(key: key, value: token);
 }
@@ -83,7 +84,7 @@ Future<void> setOfflineStatus(bool offlineStatus, bool rebuildDatabase) async {
       List nonSyncedNotes = await Offline().getUnsyncedNotes(db);
       final GraphQLClient graphQLClient = client.value;
       for (var note in nonSyncedNotes) {
-        await graphQLClient.mutate(
+        var mutationResult = await graphQLClient.mutate(
           MutationOptions(document: gql(createHighlight),
             variables: {
               'node_id': note['node_id'],
@@ -91,8 +92,9 @@ Future<void> setOfflineStatus(bool offlineStatus, bool rebuildDatabase) async {
               'highlighted_text': note['selected_text'],
               'note_start': note['start_position'],
               'note_end': note['end_position'],
-            }));
-        await Offline().markNoteAsSynced(note['id'], db);
+            })).then((result) async {
+              await Offline().markNoteAsSynced(note['id'], db, result.data?['createCustomHighlight']['customHighlight']['id'] ?? '');
+          });
       }
       await db?.close();
       db = null;
@@ -109,6 +111,22 @@ Future<void> setOfflineDate(int offlineDate) async {
   return storage.write(key: 'offlineDate', value: offlineDate.toString());
 }
 
+Future<int> getLastSyncDate() async {
+  return int.parse(await storage.read(key: 'syncDate') ?? '0');
+}
+
+Future<void> setLastSyncDate(int lastSyncDate) async {
+  return storage.write(key: 'syncDate', value: lastSyncDate.toString());
+}
+
+bool getisDBReady() {
+  return dbIsReady;
+}
+
+initDatabase(bool reOpenDB) async {
+  var database = await Offline().initDatabase(reOpenDB);
+  db = database;
+}
 
 Future<void> saveNote(note) async {
   final GraphQLClient graphQLClient = client.value;
@@ -116,14 +134,6 @@ Future<void> saveNote(note) async {
 }
 Future<Map<String, String>?> authenticateUser(userName, password) async {
   var redirectUri = kIsWeb ? ((Uri.base.host == '127.0.0.1' || Uri.base.host == 'localhost') ? 'http://127.0.0.1:${Uri.base.port}/auth.html' : 'https://${Uri.base.host}/auth.html') : 'com.biggerminds.allenapp://test/';
-  //final url = Uri.https(drupalDomain, '/oauth/authorize', {
-  //  'response_type': 'code',
-  //  'client_id': oauthClientId,
-  //  'redirect_uri': redirectUri,
-  //  'scope': 'content_editor',
-  //});
-  //final result = await FlutterWebAuth2.authenticate(url: url.toString(), callbackUrlScheme: 'com.biggerminds.allenapp');
-  //final code = Uri.parse(result).queryParameters['code'];
   final tokenResponse = await http.post(tokenUrl, body: {
     'client_id': oauthClientId,
     //'redirect_uri': redirectUri,

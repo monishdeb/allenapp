@@ -56,7 +56,7 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
   String selectedText = '';
   String? currentNodeId;
   bool isAppOffline = false;
-  String labelKey = 'label';
+  String labelKey = 'title';
   final TextEditingController _controller = TextEditingController();
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -67,9 +67,6 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
       BrowserContextMenu.disableContextMenu();
     }
     isAppOffline = widget.isOffline;
-    if (isAppOffline) {
-      labelKey = 'title';
-    }
 
     // Use an async initializer so exceptions are easier to catch and we can await sequentially.
     _initAsync();
@@ -77,6 +74,13 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
 
   Future<void> _initAsync() async {
     try {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        await initDatabase(false);
+      }
+      else {
+        await Offline().getSourceData(database, false);
+      }
       await fetchTermContent(widget.id);
       await fetchNavigationTerms(widget.id);
       await fetchChildTermsAndContent(widget.id);
@@ -102,7 +106,6 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
       if (!mounted) return;
       setState(() {
         isAppOffline = isOffline ?? false;
-        labelKey = !(isOffline ?? false) ? 'label' : 'title';
       });
       await fetchTermContent(widget.id);
       await fetchNavigationTerms(widget.id);
@@ -122,23 +125,10 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
 
 Future<void> fetchNavigationTerms(String termId) async {
   try {
-    final GraphQLClient graphQLClient = client.value;
     String termTitle = '';
-    if (isAppOffline) {
-      var currentTermResult = await Offline().getACLTaxonomy(null, termId, db);
-      if (currentTermResult.isNotEmpty) {
-        termTitle = currentTermResult[0][labelKey] ?? '';
-      }
-    } else {
-      final currentTaxonomy = await graphQLClient.query(
-        QueryOptions(document: gql(getTaxonomyTerm), variables: {'termId': termId}),
-      );
-      if (currentTaxonomy.hasException) {
-        debugPrint('fetchNavigationTerms - getTaxonomyTerm exception: ${currentTaxonomy.exception}');
-      }
-      termTitle = (currentTaxonomy.data?['entityQuery']?['items'] as List?)?.isNotEmpty == true
-          ? currentTaxonomy.data?['entityQuery']?['items']?[0]?[labelKey] ?? ''
-          : '';
+    var currentTermResult = await Offline().getACLTaxonomy(null, termId, db);
+    if (currentTermResult.isNotEmpty) {
+      termTitle = currentTermResult[0][labelKey] ?? '';
     }
 
     var currentTermId = termId;
@@ -146,35 +136,13 @@ Future<void> fetchNavigationTerms(String termId) async {
 
     // If on a subpage (e.g. "4 H 1" or "4.6") try to normalise to the parent term id we've stored
     if (isSubPage(fixLabel(termTitle))) {
-      if (!isAppOffline) {
-        final getRealCurrentTermId = await graphQLClient.query(
-          QueryOptions(document: gql(getParentID), variables: {'termId': termId}),
-        );
-        if (getRealCurrentTermId.hasException) {
-          debugPrint('fetchNavigationTerms - getParentID exception: ${getRealCurrentTermId.exception}');
-        } else {
-          currentTermId = getRealCurrentTermId.data?['entityQuery']?['items']?[0]?['parentRawField']?['getString'] ?? currentTermId;
-        }
-
+      var parentTermResult = await Offline().getParentTaxonomyTerm(termId, db);
+      if (parentTermResult.isNotEmpty) {
+        currentTermId = parentTermResult[0]['id'].toString();
         if ('.'.allMatches(fixLabel(termTitle)).length >= 3) {
-          final getPreviousCurrentTermId = await graphQLClient.query(
-            QueryOptions(document: gql(getParentID), variables: {'termId': currentTermId}),
-          );
-          if (!getPreviousCurrentTermId.hasException) {
-            currentTermId = getPreviousCurrentTermId.data?['entityQuery']?['items']?[0]?['parentRawField']?['getString'] ?? currentTermId;
-          } else {
-            debugPrint('fetchNavigationTerms - second getParentID exception: ${getPreviousCurrentTermId.exception}');
-          }
-        }
-      } else {
-        var parentTermResult = await Offline().getParentTaxonomyTerm(termId, db);
-        if (parentTermResult.isNotEmpty) {
-          currentTermId = parentTermResult[0]['id'].toString();
-          if ('.'.allMatches(fixLabel(termTitle)).length >= 3) {
-            var previousParentTermResult = await Offline().getParentTaxonomyTerm(currentTermId, db);
-            if (previousParentTermResult.isNotEmpty) {
-              currentTermId = (previousParentTermResult[0]['id'] ?? currentTermId).toString();
-            }
+          var previousParentTermResult = await Offline().getParentTaxonomyTerm(currentTermId, db);
+          if (previousParentTermResult.isNotEmpty) {
+            currentTermId = (previousParentTermResult[0]['id'] ?? currentTermId).toString();
           }
         }
       }
@@ -190,33 +158,9 @@ Future<void> fetchNavigationTerms(String termId) async {
     List<Map<String, dynamic>> items = [];
     List childTaxonomyTerms = [];
 
-    if (!isAppOffline) {
-      final realCurrentTaxonomy = await graphQLClient.query(
-          QueryOptions(document: gql(getTaxonomyTerm), variables: {'termId': currentTermId}));
-      if (realCurrentTaxonomy.hasException) {
-        debugPrint('fetchNavigationTerms - realCurrentTaxonomy exception: ${realCurrentTaxonomy.exception}');
-      }
-      termTitle = (realCurrentTaxonomy.data?['entityQuery']?['items'] as List?)?.isNotEmpty == true
-          ? realCurrentTaxonomy.data?['entityQuery']?['items']?[0]?[labelKey] ?? termTitle
-          : termTitle;
-
-      final result = await graphQLClient.query(
-        QueryOptions(document: gql(getParentID), variables: {'termId': currentTermId}),
-      );
-
-      if (result.hasException) {
-        debugPrint("Error fetching parent ID: ${result.exception.toString()}");
-        return;
-      }
-
-      var itemsRaw = result.data?['entityQuery']?['items'] as List? ?? [];
-      items = List<Map<String, dynamic>>.from(itemsRaw.cast<Map<String, dynamic>>());
-      parentTermId = (itemsRaw.isNotEmpty) ? (itemsRaw[0]['parentRawField']?['getString'] as String?) : null;
-    } else {
-      items = await Offline().getACLTaxonomy(null, currentTermId, db);
-      parentTermId = items.isNotEmpty ? items[0]['parent_id'].toString() : null;
-      termTitle = items.isNotEmpty ? items[0][labelKey] : termTitle;
-    }
+    items = await Offline().getACLTaxonomy(null, currentTermId, db);
+    parentTermId = items.isNotEmpty ? items[0]['parent_id'].toString() : null;
+    termTitle = items.isNotEmpty ? items[0][labelKey] : termTitle;
 
     currentTitle = fixLabel(termTitle);
     if (items.isEmpty) {
@@ -229,45 +173,15 @@ Future<void> fetchNavigationTerms(String termId) async {
     Map<dynamic, dynamic> rootParentChildTerms = {};
 
     if (parentTermId != null) {
-      if (!isAppOffline) {
-        final parentTaxonomy = await graphQLClient.query(
-            QueryOptions(document: gql(getTaxonomyTerm), variables: {'termId': parentTermId}));
-        if (!parentTaxonomy.hasException) {
-          var ptItems = parentTaxonomy.data?['entityQuery']?['items'] as List? ?? [];
-          if (ptItems.isNotEmpty) {
-            parentTitle = ptItems[0][labelKey] ?? '';
-            if (parentTitle.contains('M') || parentTitle.endsWith('H') || parentTitle.endsWith('L')) {
-              final trueParent = await graphQLClient.query(
-                QueryOptions(document: gql(getParentID), variables: {'termId': parentTermId}),
-              );
-              if (!trueParent.hasException) {
-                realParentId = trueParent.data?['entityQuery']?['items']?[0]?['parentRawField']?['getString'];
-                final trueParentTaxonomy = await graphQLClient.query(
-                    QueryOptions(document: gql(getTaxonomyTerm), variables: {'termId': realParentId}));
-                if (!trueParentTaxonomy.hasException) {
-                  parentTitle =
-                      trueParentTaxonomy.data?['entityQuery']?['items']?[0]?[labelKey] ?? parentTitle;
-                  if (realParentId != null) {
-                    childLabels[realParentId] = parentTitle;
-                  }
-                }
-              }
-            }
-          }
-        } else {
-          debugPrint('fetchNavigationTerms - parentTaxonomy exception: ${parentTaxonomy.exception}');
-        }
-      } else {
-        var parentTaxonomy = await Offline().getACLTaxonomy(null, parentTermId, db);
-        if (parentTaxonomy.isNotEmpty) {
-          parentTitle = parentTaxonomy[0][labelKey] ?? '';
-          if (parentTitle.contains('M') || parentTitle.endsWith('H') || parentTitle.endsWith('L')) {
-            var trueParent = await Offline().getParentTaxonomyTerm(parentTermId, db);
-            if (trueParent.isNotEmpty) {
-              realParentId = trueParent[0]['id'].toString();
-              parentTitle = trueParent[0][labelKey] ?? parentTitle;
-              childLabels[realParentId] = parentTitle;
-            }
+      var parentTaxonomy = await Offline().getACLTaxonomy(null, parentTermId, db);
+      if (parentTaxonomy.isNotEmpty) {
+        parentTitle = parentTaxonomy[0][labelKey] ?? '';
+        if (parentTitle.contains('M') || parentTitle.endsWith('H') || parentTitle.endsWith('L')) {
+          var trueParent = await Offline().getParentTaxonomyTerm(parentTermId, db);
+          if (trueParent.isNotEmpty) {
+            realParentId = trueParent[0]['id'].toString();
+            parentTitle = trueParent[0][labelKey] ?? parentTitle;
+            childLabels[realParentId] = parentTitle;
           }
         }
       }
@@ -275,53 +189,22 @@ Future<void> fetchNavigationTerms(String termId) async {
       var actualParentId = (realParentId != null ? realParentId : parentTermId);
 
       // Get the Previous parent e.g. 4 for 4 H
-      if (!isAppOffline) {
-        final previousParent = await graphQLClient.query(
-            QueryOptions(document: gql(getParentID), variables: {'termId': actualParentId}));
-        if (previousParent.hasException) {
-          debugPrint("Error fetching parent ID: ${previousParent.exception.toString()}");
-          return;
-        }
-        var pItems = previousParent.data?['entityQuery']?['items'] as List? ?? [];
-        if (pItems.isNotEmpty) {
-          previousParentId = pItems[0]['parentRawField']?['getString'];
-          if (previousParentId != null && previousParentId != "0") {
-            final rootTaxonomy = await graphQLClient.query(
-                QueryOptions(document: gql(getTaxonomyTerm), variables: {'termId': previousParentId}));
-            if (!rootTaxonomy.hasException) {
-              rootTitle = fixLabel(rootTaxonomy.data?['entityQuery']?['items']?[0]?[labelKey] ?? '');
-            }
+      var previousParent = await Offline().getParentTaxonomyTerm(actualParentId, db);
+      if (previousParent.isNotEmpty) {
+        previousParentId = previousParent[0]['id'].toString();
+        if (previousParentId != "0") {
+          var rootTaxonomy = await Offline().getACLTaxonomy(null, previousParentId, db);
+          if (rootTaxonomy.isNotEmpty) {
+            rootTitle = fixLabel(rootTaxonomy[0][labelKey] ?? '');
           }
         }
-
-        // Get Child terms of the parent e.g. 4.2 4.4 from parent e.g. 4 H
-        final childrenResult = await graphQLClient.query(
-            QueryOptions(document: gql(getChildTerms), variables: {'parentIds': parentTermId}));
-        if (!childrenResult.hasException) {
-          childTaxonomyTerms = childrenResult.data?['entityQuery']?['items'] ?? [];
-        } else {
-          debugPrint('fetchNavigationTerms - childrenResult exception: ${childrenResult.exception}');
-        }
-      } else {
-        var previousParent = await Offline().getParentTaxonomyTerm(actualParentId, db);
-        if (previousParent.isNotEmpty) {
-          previousParentId = previousParent[0]['id'].toString();
-          if (previousParentId != "0") {
-            var rootTaxonomy = await Offline().getACLTaxonomy(null, previousParentId, db);
-            if (rootTaxonomy.isNotEmpty) {
-              rootTitle = fixLabel(rootTaxonomy[0][labelKey] ?? '');
-            }
-          }
-        }
-        childTaxonomyTerms = await Offline().getACLTaxonomy(parentTermId, null, db);
       }
+      childTaxonomyTerms = await Offline().getACLTaxonomy(parentTermId, null, db);
 
       for (var childTermEntry in childTaxonomyTerms) {
         final id = childTermEntry['id'].toString();
         childLabels[id] = childTermEntry[labelKey];
-        childTerms[id] = (isAppOffline
-            ? childTermEntry['weight'].toString()
-            : childTermEntry['weightRawField']?['getString'] ?? '');
+        childTerms[id] = childTermEntry['weight'].toString() ?? '';
       }
 
       // --- Numeric successor lookup (if no child already resolved) ---
@@ -334,41 +217,19 @@ Future<void> fetchNavigationTerms(String termId) async {
           String? foundId;
           String? foundLabel;
 
-          if (!isAppOffline) {
-            try {
-              final parentResult = await graphQLClient.query(QueryOptions(document: gql(getParentTerms)));
-              if (!parentResult.hasException) {
-                final parentItems = parentResult.data?['entityQuery']?['items'] as List? ?? [];
-                for (var pi in parentItems) {
-                  final rawLabel = (pi['label'] ?? '').toString().trim();
-                  final normalized = fixLabel(rawLabel);
-                  if (normalized == nextNum.toString()) {
-                    foundId = pi['id']?.toString();
-                    foundLabel = normalized;
-                    break;
-                  }
-                }
-              } else {
-                debugPrint('getParentTerms exception: ${parentResult.exception}');
+          try {
+            final offlineList = await Offline().getACLTaxonomy(null, null, db);
+            for (var pi in offlineList) {
+              final rawLabel = (pi[labelKey] ?? '').toString().trim();
+              final normalized = fixLabel(rawLabel);
+              if (normalized == nextNum.toString()) {
+                foundId = (pi['id'] ?? '').toString();
+                foundLabel = normalized;
+                break;
               }
-            } catch (e, st) {
-              debugPrint('Error querying getParentTerms: $e\n$st');
             }
-          } else {
-            try {
-              final offlineList = await Offline().getACLTaxonomy(null, null, db);
-              for (var pi in offlineList) {
-                final rawLabel = (pi[labelKey] ?? '').toString().trim();
-                final normalized = fixLabel(rawLabel);
-                if (normalized == nextNum.toString()) {
-                  foundId = (pi['id'] ?? '').toString();
-                  foundLabel = normalized;
-                  break;
-                }
-              }
-            } catch (e, st) {
-              debugPrint('Offline getParentTerms lookup failed: $e\n$st');
-            }
+          } catch (e, st) {
+            debugPrint('Offline getParentTerms lookup failed: $e\n$st');
           }
 
           if (foundId != null) {
@@ -390,41 +251,19 @@ Future<void> fetchNavigationTerms(String termId) async {
             final int prevNum = currentNum - 1;
             String? foundParentId;
             String? foundParentLabel;
-            if (!isAppOffline) {
-              try {
-                final parentResult = await graphQLClient.query(QueryOptions(document: gql(getParentTerms)));
-                if (!parentResult.hasException) {
-                  final parentItems = parentResult.data?['entityQuery']?['items'] as List? ?? [];
-                  for (var pi in parentItems) {
-                    final rawLabel = (pi['label'] ?? '').toString().trim();
-                    final normalized = fixLabel(rawLabel);
-                    if (normalized == prevNum.toString()) {
-                      foundParentId = pi['id']?.toString();
-                      foundParentLabel = normalized;
-                      break;
-                    }
-                  }
-                } else {
-                  debugPrint('getParentTerms exception (parent lookup): ${parentResult.exception}');
+            try {
+              final offlineList = await Offline().getACLTaxonomy(null, null, db);
+              for (var pi in offlineList) {
+                final rawLabel = (pi[labelKey] ?? '').toString().trim();
+                final normalized = fixLabel(rawLabel);
+                if (normalized == prevNum.toString()) {
+                  foundParentId = (pi['id'] ?? '').toString();
+                  foundParentLabel = normalized;
+                  break;
                 }
-              } catch (e, st) {
-                debugPrint('Error querying getParentTerms for parent: $e\n$st');
               }
-            } else {
-              try {
-                final offlineList = await Offline().getACLTaxonomy(null, null, db);
-                for (var pi in offlineList) {
-                  final rawLabel = (pi[labelKey] ?? '').toString().trim();
-                  final normalized = fixLabel(rawLabel);
-                  if (normalized == prevNum.toString()) {
-                    foundParentId = (pi['id'] ?? '').toString();
-                    foundParentLabel = normalized;
-                    break;
-                  }
-                }
-              } catch (e, st) {
-                debugPrint('Offline getParentTerms parent lookup failed: $e\n$st');
-              }
+            } catch (e, st) {
+              debugPrint('Offline getParentTerms parent lookup failed: $e\n$st');
             }
 
             if (foundParentId != null) {
@@ -485,36 +324,13 @@ Future<void> fetchNavigationTerms(String termId) async {
   Future<void> fetchTermContent(String termId) async {
     try {
       List<Map<String, dynamic>> items = [];
-      if (!isAppOffline) {
-        final GraphQLClient graphQLClient = client.value;
-
-        final String query = getNodesByTerm;
-
-        final QueryResult result = await graphQLClient.query(
-          QueryOptions(
-            document: gql(query),
-            variables: {'termId': termId, 'langcode': widget.locale},
-          ),
-        );
-
-        if (result.hasException) {
-          debugPrint('fetchTermContent GraphQL error: ${result.exception}');
-        }
-
-        items = List<Map<String, dynamic>>.from(result.data?['entityQuery']?['items'] ?? []);
-      }
-      else {
-        items = await Offline().getNodesByTaxonomyId(termId, widget.locale, 'allen_cognitive_levels', db);
-      }
-
+      items = await Offline().getNodesByTaxonomyId(termId, widget.locale, 'allen_cognitive_levels', db);
       if (!mounted) return;
       setState(() {
         contentNodes = [...items];
         if (contentNodes.isNotEmpty) {
           currentNodeId = contentNodes[0]['id']?.toString();
-          _controller.text = parseHtmlString((isAppOffline ? (contentNodes[0]['body'] ?? '') :
-            (contentNodes[0]['translation']?['bodyRawField']?['getString'] ?? '')
-          ));
+          _controller.text = parseHtmlString(contentNodes[0]['body'] ?? '');
         }
       });
     } catch (e, st) {
@@ -529,41 +345,22 @@ Future<void> fetchNavigationTerms(String termId) async {
 
   Future<void> fetchNotes()  async {
     try {
-      if (isAppOffline) {
-        int? nodeId = currentNodeId != null ? int.tryParse(currentNodeId!) : null;
-        if (nodeId == null) {
-          if (mounted) {
-            setState(() {
-              userNotes = [];
-              isLoading = false;
-            });
-          }
-          return;
+      int? nodeId = currentNodeId != null ? int.tryParse(currentNodeId!) : null;
+      if (nodeId == null) {
+        if (mounted) {
+          setState(() {
+            userNotes = [];
+            isLoading = false;
+          });
         }
-        List<Map<String, dynamic>> notes = await Offline().getNotesByNode(nodeId, db);
-        if (!mounted) return;
-        setState(() {
-          userNotes = notes;
-          isLoading = false;
-        });
+        return;
       }
-      else {
-        final currentUserId = await getUserID();
-        final GraphQLClient graphQLClient = client.value;
-        final QueryResult res = await graphQLClient.query(
-            QueryOptions(document: gql(getNotesForNode),
-                variables: {'nodeId': currentNodeId, 'user_id': currentUserId})
-        );
-        if (res.hasException) {
-          debugPrint('fetchNotes GraphQL error: ${res.exception}');
-        }
-        List<Map<String, dynamic>> notes = List<Map<String, dynamic>>.from(res.data?['entityQuery']?['items'] ?? []);
-        if (!mounted) return;
-        setState(() {
-          userNotes = notes;
-          isLoading = false;
-        });
-      }
+      List<Map<String, dynamic>> notes = await Offline().getNotesByNode(nodeId, db);
+      if (!mounted) return;
+      setState(() {
+        userNotes = notes;
+        isLoading = false;
+      });
     } catch (e, st) {
       debugPrint('fetchNotes error: $e\n$st');
       if (mounted) {
@@ -583,23 +380,7 @@ Future<void> fetchNavigationTerms(String termId) async {
       List modeItems = [];
       List profileItems = [];
       final GraphQLClient graphQLClient = client.value;
-      if (!isAppOffline) {
-        final QueryResult result = await graphQLClient.query(
-          QueryOptions(document: gql(getChildTerms), variables: {
-            'parentIds': [parentId]
-          }),
-        );
-
-        if (result.hasException) {
-          debugPrint("Error fetching child terms: ${result.exception.toString()}");
-          return;
-        }
-
-        childTerms = result.data?['entityQuery']?['items'] ?? [];
-      }
-      else {
-        childTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
-      }
+      childTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
 
       for (var childTerm in childTerms) {
         String childId = childTerm['id'].toString();
@@ -608,46 +389,16 @@ Future<void> fetchNavigationTerms(String termId) async {
         // if finds umbrella term for mode terms, queries again for the actual modes
         if (childLabel.endsWith('L') || childLabel.endsWith('H')) {
           List<Map<String, dynamic>> contentItems = [];
-          if (!isAppOffline) {
-            final QueryResult contentResult = await graphQLClient.query(
-              QueryOptions(
-                  document: gql(getNodesByTerm),
-                  variables: {'termId': childId, 'langcode': widget.locale}),
-            );
-            if (contentResult.hasException) {
-              debugPrint('fetchChildTermsAndContent - contentResult exception: ${contentResult.exception}');
-              continue;
-            }
-            contentItems = List<Map<String, dynamic>>.from(contentResult.data?['entityQuery']?['items'] ?? []);
-          }
-          else {
-            contentItems = await Offline().getNodesByTaxonomyId(childId.toString(), widget.locale, 'allen_cognitive_levels', db);
-          }
+          contentItems = await Offline().getNodesByTaxonomyId(childId.toString(), widget.locale, 'allen_cognitive_levels', db);
 
           for (var content in contentItems) {
             profileItems.add({
               'termId': childId,
-              'termLabel': (isAppOffline ? (content['label'] ?? '') : (content['translation']?['titleRawField']?['getString'] ?? '')),
+              'termLabel': (content['label'] ?? ''),
             });
           }
           List hlChildTerms = [];
-          if (!isAppOffline) {
-            final QueryResult result = await graphQLClient.query(
-              QueryOptions(document: gql(getChildTerms), variables: {
-                'parentIds': [childId]
-              }),
-            );
-
-            if (result.hasException) {
-              debugPrint("Error fetching child terms: ${result.exception.toString()}");
-              return;
-            }
-
-            hlChildTerms = result.data?['entityQuery']?['items'] ?? [];
-          }
-          else {
-            hlChildTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
-          }
+          hlChildTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
           for (var hlChildTerm in hlChildTerms) {
             if (hlChildTerm[labelKey].endsWith('M')) {
               childId = hlChildTerm['id'].toString();
@@ -656,44 +407,16 @@ Future<void> fetchNavigationTerms(String termId) async {
           }
         }
         if (childLabel.endsWith('M')) {
-          if (!isAppOffline) {
-            final QueryResult modeResult = await graphQLClient.query(
-              QueryOptions(
-                  document: gql(getChildTerms),
-                  variables: {'parentIds': childId}),
-            );
-            if (modeResult.hasException) {
-              debugPrint('fetchChildTermsAndContent - modeResult exception: ${modeResult.exception}');
-              continue;
-            }
-            modeItems = modeResult.data?['entityQuery']?['items'] ?? [];
-          }
-          else {
-            modeItems = await Offline().getChildTaxonomy(childId, 'allen_cognitive_levels', db);
-          }
+          modeItems = await Offline().getChildTaxonomy(childId, 'allen_cognitive_levels', db);
           for (var item in modeItems) {
             List<Map<String, dynamic>> contentItems = [];
-            if (!isAppOffline) {
-              final QueryResult contentResult = await graphQLClient.query(
-                QueryOptions(
-                    document: gql(getNodesByTerm),
-                    variables: {'termId': item['id'], 'langcode': widget.locale}),
-              );
-              if (contentResult.hasException) {
-                debugPrint('fetchChildTermsAndContent - contentResult exception: ${contentResult.exception}');
-                continue;
-              }
-              contentItems = List<Map<String, dynamic>>.from(contentResult.data?['entityQuery']?['items'] ?? []);
-            }
-            else {
-              contentItems = await Offline().getNodesByTaxonomyId(item['id'].toString(), widget.locale, 'allen_cognitive_levels', db);
-            }
+            contentItems = await Offline().getNodesByTaxonomyId(item['id'].toString(), widget.locale, 'allen_cognitive_levels', db);
             for (var content in contentItems) {
               modeTerms.add({
                 'termId': item['id'].toString(),
-                'termLabel': (isAppOffline ? (content['label'] ?? '') : (content['translation']?['titleRawField']?['getString'] ?? '')),
+                'termLabel': (content['label'] ?? ''),
                 'contentId': content['id'].toString(),
-                'body': (isAppOffline ? (content['body'] ?? '') : content['translation']?['bodyRawField']?['getString'] ?? ''),
+                'body': (content['body'] ?? ''),
               });
             }
             modeTerms.sort((a, b) {
@@ -704,31 +427,17 @@ Future<void> fetchNavigationTerms(String termId) async {
           }
         } else {
           List<Map<String, dynamic>> items = [];
-          if (!isAppOffline) {
-            final QueryResult contentResult = await graphQLClient.query(
-              QueryOptions(document: gql(getNodesByTerm),
-                  variables: {'termId': childId, 'langcode': widget.locale}),
-            );
-            if (contentResult.hasException) {
-              debugPrint('fetchChildTermsAndContent - contentResult exception: ${contentResult.exception}');
-              continue;
-            }
-
-            items = List<Map<String, dynamic>>.from(contentResult.data?['entityQuery']?['items'] ?? []);
-          }
-          else {
-            items = await Offline().getNodesByTaxonomyId(childId, widget.locale, 'allen_cognitive_levels', db);
-          }
+          items = await Offline().getNodesByTaxonomyId(childId, widget.locale, 'allen_cognitive_levels', db);
           List<Map<String, dynamic>> allItems = [...items];
 
           for (var item in allItems) {
             fetchedChildTermContent.add({
               'termId': childId,
               'termLabel': childLabel,
-              'contentLabel': (isAppOffline ? (item['label'] ?? '') : item['translation']?['titleRawField']?['getString'] ?? ''),
+              'contentLabel': (item['label'] ?? ''),
               'contentId': item['id'],
-              'body': (isAppOffline ? (item['body'] ?? '') : item['translation']?['bodyRawField']?['getString'] ?? ''),
-              'contentType': (isAppOffline ? (item['content_type'] ?? '') : item['fieldContentTypeRawField']?['getString'] ?? ''),
+              'body': (item['body'] ?? ''),
+              'contentType': (item['content_type'] ?? ''),
             });
           }
         }
@@ -776,8 +485,8 @@ Future<void> fetchNavigationTerms(String termId) async {
 
   Future<void> saveHighlightedNote(HighlightedNote highlightedNote) async {
     try {
-      final GraphQLClient graphQLClient = client.value;
-      final res = await graphQLClient.mutate(MutationOptions(document: gql(createHighlight), variables: {'node_id': int.parse(highlightedNote.nodeId), 'note': highlightedNote.note, 'highlighted_text': highlightedNote.selectedText, 'note_start': highlightedNote.start, 'note_end': highlightedNote.end}));
+      var database = db;
+      final res = await Offline().saveNote(int.parse(highlightedNote.nodeId), highlightedNote.note, highlightedNote.selectedText, highlightedNote.start,  highlightedNote.end, database);
       if (res.hasException) {
         debugPrint('saveHighlightedNote GraphQL error: ${res.exception}');
         return;
@@ -826,7 +535,6 @@ Future<void> fetchNavigationTerms(String termId) async {
     if (isLoading) {
       return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
-
     if (contentNodes.isEmpty && childTermContent.isEmpty) {
       return Scaffold(
         appBar: appbar,
@@ -1143,7 +851,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                               icon: Icon(Icons.arrow_back),
                               onPressed: () => Navigator.pop(context),
                               label: Text(
-                                'ACL ' + originalTitle.substring(0, 3) + (contentNodes.isNotEmpty ? ': ' + (contentNodes[0]['translation']?['titleRawField']?['getString'] ?? '') : ''),
+                                'ACL ' + originalTitle.substring(0, 3) + (contentNodes.isNotEmpty ? ': ' + (contentNodes[0]['label'] ?? '') : ''),
                                 textAlign: TextAlign.left,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
@@ -1164,7 +872,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              (contentNodes.isNotEmpty ? (contentNodes[0]['translation']?['titleRawField']?['getString'] ?? '') : ''),
+                              (contentNodes.isNotEmpty ? (contentNodes[0]['label'] ?? '') : ''),
                               textAlign: TextAlign.left,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1185,7 +893,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: SelectableAllenText(
-                              text: parseHtmlString((isAppOffline ? (contentNodes[0]['body'] ?? '') : (contentNodes[0]['translation']?['bodyRawField']?['getString'] ?? ''))),
+                              text: parseHtmlString((contentNodes[0]['body'] ?? '')),
                               notes: userNotes,
                               currentNodeId: currentNodeId,
                               isOffline: isAppOffline,

@@ -8,6 +8,8 @@ import '../services/auth.dart';
 import '../services/query.dart';
 import 'package:flutter_screen_lock/flutter_screen_lock.dart';
 import 'loginForm.dart';
+import 'loadingScreen.dart';
+import '../services/Offline.dart';
 
 class FormData {
   String? username;
@@ -55,6 +57,7 @@ class _loginPageState extends State<LoginPage> {
     var now = DateTime.now().millisecondsSinceEpoch;
     var isOffline = await getOfflineStatus() ?? false;
     var languageCode = await getLangaugeCode() ?? '';
+    var database = db;
     if (!isOffline) {
       String? token = await getToken();
 
@@ -67,7 +70,7 @@ class _loginPageState extends State<LoginPage> {
         }
         var accessToken = await authenticateUser(formData.username, formData.password);
         if (accessToken == null || accessToken.isEmpty) {
-        final snackBar = SnackBar(
+          final snackBar = SnackBar(
           backgroundColor: Color.fromRGBO(213, 31, 39, 1),
             content: Row(
               children: [
@@ -89,7 +92,7 @@ class _loginPageState extends State<LoginPage> {
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
           return;
         }
-        if (accessToken != null && accessToken.isNotEmpty) {
+        if (accessToken.isNotEmpty) {
           await saveToken(accessToken['access_token'] ?? '', 'access_token');
           await saveToken(accessToken['refresh_token'] ?? '', 'refresh_token');
           await saveToken(accessToken['expires_in'] ?? '', 'expires_in');
@@ -100,6 +103,12 @@ class _loginPageState extends State<LoginPage> {
           );
           await saveToken(
               getCurrentUser.data?['currentUser']['id'] ?? '0', 'user_id');
+          if (database == null || !database.isOpen) {
+            await initDatabase(false);
+          }
+          else {
+            await Offline().getSourceData(database, false);
+          }
         }
       }
       else if (now >= expiryTime) {
@@ -125,16 +134,26 @@ class _loginPageState extends State<LoginPage> {
         );
       }
       else if (languageCode.isNotEmpty) {
+        if (database == null || !database.isOpen) {
+          await initDatabase(false);
+        }
+        else {
+          await Offline().getSourceData(database, false);
+        }
         await setLastPinCodeRequest();
-        await setOfflineStatus(true, false);
         Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN'), locale: languageCode, isOffline: isOffline))
         );
       }
       else {
+        if (database == null || !database.isOpen) {
+          await initDatabase(false);
+        }
+        else {
+          await Offline().getSourceData(database, false);
+        }
         await setLastPinCodeRequest();
-        await setOfflineStatus(true, false);
         Navigator.push(
             context,
             MaterialPageRoute(
@@ -189,18 +208,7 @@ class _loginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final arguments = (ModalRoute.of(context)?.settings.arguments ?? <String, dynamic>{}) as Map;
     if (loading) {
-      return Scaffold(
-          appBar: AppBar(
-            //title: Text(
-            //  'Allen App',
-            //  style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-            //),
-            title: Image(image: AssetImage("images/Allen_App_title.png")),
-            centerTitle: true,
-            automaticallyImplyLeading: false,
-          ),
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return loadingScreen(isEnglishUS: (pin_code.isEmpty ? true : (locale == 'EN')), locale: (pin_code.isEmpty ? 'EN' : locale));
     }
     if (!isAuthenticated || widget.forceLogin || (arguments['forceLogin'] ?? false)) {
       bool isEnglishUS = true;
@@ -252,12 +260,6 @@ class _loginPageState extends State<LoginPage> {
       return Scaffold(
         appBar: AppBar(
           title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
-          //title: Text(
-          //  widget.title,
-          //  style: TextStyle(fontFamily: 'helvetica,sans-serif',
-          //  color: Colors.white,
-          //  fontWeight: FontWeight.bold)
-          //),
           centerTitle: true,
           automaticallyImplyLeading: false,
         ),
@@ -268,29 +270,28 @@ class _loginPageState extends State<LoginPage> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.zero
+                    borderRadius: BorderRadius.zero
                   ),
                   backgroundColor: Colors.grey[800],
                   foregroundColor: Colors.white,
                   minimumSize: const Size(40, 40), //////// HERE
                 ),
-                onPressed: () =>
-                    showDialog<void>(
-                      context: context,
-                      builder: (context) {
-                        return ScreenLock(
-                          correctString: pin_code,
-                          onCancelled: Navigator
-                              .of(context)
-                              .pop,
-                          onUnlocked: () => {_authenticate(context, false)},
-                        );
-                      },
-                    ),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (context) {
+                    return ScreenLock(
+                      correctString: pin_code,
+                      onCancelled: Navigator
+                        .of(context)
+                        .pop,
+                        onUnlocked: () => {_authenticate(context, false)},
+                    );
+                  },
+                ),
                 child: const Text('Please Login',
-                    style: TextStyle(fontFamily: 'helvetica,sans-serif',
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold)
+                  style: TextStyle(fontFamily: 'helvetica,sans-serif',
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold)
                 ),
               ),
             ],

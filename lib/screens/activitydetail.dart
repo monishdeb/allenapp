@@ -60,22 +60,16 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     fetchNotes(widget.nodeId, userNotes);
   }
   Future<void> fetchNotes(currentNodeId, userNotes)  async {
-    if (isAppOffline) {
-      userNotes = await Offline().getNotesByNode(int.parse(currentNodeId ?? ''), db);
+    if (!isAppOffline) {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        await initDatabase(false);
+      }
+      else {
+        await Offline().getSourceData(database, false);
+      }
     }
-    else {
-      await getUserID().then((currentUserId) async {
-        final GraphQLClient graphQLClient = client.value;
-        final QueryResult res = await graphQLClient.query(
-            QueryOptions(document: gql(getNotesForNode),
-                variables: {'nodeId': currentNodeId, 'user_id': currentUserId})
-        ).then((result) {
-          userNotes = List<Map<String, dynamic>>.from(
-              result.data?['entityQuery']['items'] ?? []);
-          return result;
-        });
-      });
-    }
+    userNotes = await Offline().getNotesByNode(int.parse(currentNodeId ?? ''), db);
     setState(() {
       isLoading = false;
     });
@@ -136,6 +130,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     // throws error if num of labels and bodies don't match for now
     if (decisionBodies.isNotEmpty &&
         decisionBodies.length != decisionLabels.length) {
+
       throw Exception(
           "Number of decision labels and decision bodies must be the same.");
     }
@@ -158,6 +153,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         backLabelIndexes.add(i);
       }
     }
+
     if (decisionTaxonomies.isNotEmpty) {
       if (nextLabelIndexes.length != decisionTaxonomies.length && nextLabelIndexes.isNotEmpty) {
         try {
@@ -200,8 +196,15 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     int targetIndex = 0;
     for (int i = 0; i < decisionLabels.length; i++) {
       // if this index already has a taxonomy, skip it
-      if (buttonActions.containsKey(i)) continue;
-
+      if (backLabelIndexes.contains(i)) {
+        buttonActions[i] = () {
+          Navigator.pop(context);
+        };
+        targetIndex++;
+      }
+      if (buttonActions.containsKey(i)) {
+        continue;
+      }
       if (targetIndex < decisionTargets.length) {
         String targetId = decisionTargets[targetIndex];
         buttonActions[i] = () {
@@ -212,12 +215,12 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         if (otherActivity != null && i == otherActivity) {
           buttonActions[i] = () {
             Navigator.push(
-                context,
-                MaterialPageRoute(
+              context,
+              MaterialPageRoute(
                 builder: (context) =>  AclsTermsScreen(
-                   isEnglishUS: widget.isEnglishUS,
-                   locale: widget.locale,
-                   isOffline: isAppOffline,
+                  isEnglishUS: widget.isEnglishUS,
+                  locale: widget.locale,
+                  isOffline: isAppOffline,
                 ),
               ),
             );

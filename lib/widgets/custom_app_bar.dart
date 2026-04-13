@@ -8,6 +8,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String locale;
   final bool isEnglishUS;
   final bool isOffline;
+  final VoidCallback? onMoreOptionsPressed;
 
   const CustomAppBar({
     Key? key,
@@ -15,6 +16,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.locale,
     required this.isEnglishUS,
     required this.isOffline,
+    this.onMoreOptionsPressed,
   }) : super(key: key);
 
   @override
@@ -46,34 +48,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       centerTitle: true,
       actions: [
-        PopupMenuButton<String>(
+        IconButton(
           icon: const Icon(Icons.more_vert, color: Colors.white),
           tooltip: 'More options',
-          onSelected: (value) {
-            if (value == 'saved_notes') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      NotesPage(locale: locale, isOffline: isOffline),
-                ),
-              );
-            }
-          },
-          itemBuilder: (BuildContext context) => [
-            const PopupMenuItem<String>(
-              value: 'saved_notes',
-              child: Text('Saved Notes'),
-            ),
-            const PopupMenuItem<String>(
-              value: 'unread_changes',
-              child: Text('Unread Changes'),
-            ),
-            const PopupMenuItem<String>(
-              value: 'options',
-              child: Text('Options'),
-            ),
-          ],
+          onPressed: onMoreOptionsPressed,
         ),
         IconButton(
           icon: const Icon(Icons.settings, color: Colors.white),
@@ -143,25 +121,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
+    return Padding(
+    padding: const EdgeInsets.only(top: 110),
+    child: Drawer(
       child: Container(
         color: Colors.white,
         child: ListView(
           children: [
-            Container(
-              color: Colors.red[700],
-              padding:
-                  const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              child: const Text(
-                'Allen App Settings',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             // Log out button
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -169,7 +135,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 style: ElevatedButton.styleFrom(
                   shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.zero),
-                  backgroundColor: Colors.grey[800],
+                  backgroundColor: Colors.red[800],
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 44),
                 ),
@@ -296,6 +262,65 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
           ],
         ),
       ),
+    ));
+  }
+}
+
+class MoreOptionsDrawer extends StatelessWidget {
+  final String locale;
+  final bool isOffline;
+
+  const MoreOptionsDrawer({
+    Key? key,
+    required this.locale,
+    required this.isOffline,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+    child: Container(
+      color: Colors.white,
+      child: ListView(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: const Text(
+              'Options',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.note),
+            title: const Text('Saved Notes'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotesPage(
+                    locale: locale,
+                    isOffline: isOffline,
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.mark_email_unread),
+            title: const Text('Unread Changes'),
+            onTap: () {
+              Navigator.pop(context);
+              // TODO: implement
+            },
+          ),
+        ],
+      )),
     );
   }
 }

@@ -32,6 +32,15 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
   void initState() {
     super.initState();
     isAppOffline = widget.isOffline;
+    if (!isAppOffline) {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        initDatabase(false);
+      }
+      else {
+        Offline().getSourceData(database, false);
+      }
+    }
   }
 
   void _onChangeOffline(bool? isOffline) async {
@@ -74,76 +83,42 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
             child: Container(
               padding: EdgeInsets.zero,
               color: Colors.white,
-              child: !isAppOffline ? (
-                Query(
-                  options: QueryOptions(document: gql(getParentCFTerms)),
-                  builder: (QueryResult result, {fetchMore, refetch}) {
-                    if (result.isLoading || result.hasException) {
-                      return Center(child: CircularProgressIndicator());
-                    }
-                    List items = result.data?["entityQuery"]["items"] ?? [];
-                    return SizedBox(
-                        child: ListView.builder(
-                        itemCount: items.length,
-                        scrollDirection: Axis.vertical,
-                        shrinkWrap: true,
-                        physics: ScrollPhysics(),
-                        itemBuilder: (context, index) {
-                          var term = items[index];
-                          return Container(
-                            padding: EdgeInsets.zero,
-                            width: double.infinity, // Make each item take full width
-                            child: TermAccordion(
-                              termId: term["id"],
-                              fallbackLabel: term["label"],
-                              isEnglishUS: widget.isEnglishUS,
-                              locale: widget.locale,
-                              isAutoExpand: true,
-                              isOffline: isAppOffline,
-                            ),
-                          );
-                        },
-                    ));
-                  },
-                )
-              ) : (
-                FutureBuilder(
-                  future: Offline().getCFTerms(db, '0'),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                          child: Text('Error fetching child terms'));
-                    }
-                    List items = snapshot.data ?? [];
-                    return SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.75,
-                      child: ListView.builder(
-                      itemCount: items.length,
-                      scrollDirection: Axis.vertical,
-                      shrinkWrap: true,
-                      physics: ScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        var term = items[index];
-                        var title = term.containsKey('title') ? term['title'] : term['label'];
-                        return SizedBox(
-                          width: double.infinity, // Make each item take full width
-                          child: TermAccordion(
-                            termId: term["id"].toString(),
-                            fallbackLabel: title,
-                            isEnglishUS: widget.isEnglishUS,
-                            locale: widget.locale,
-                            isAutoExpand: true,
-                            isOffline: isAppOffline,
-                          ),
-                        );
-                      },
-                    ));
-                  },
-                )
+              child: FutureBuilder(
+                future: Offline().getCFTerms(db, '0'),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text('Error fetching child terms'));
+                  }
+                  List items = snapshot.data ?? [];
+                  return SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.75,
+                    child: ListView.builder(
+                    itemCount: items.length,
+                    scrollDirection: Axis.vertical,
+                    shrinkWrap: true,
+                    physics: ScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      var term = items[index];
+                      var title = term.containsKey('title') ? term['title'] : term['label'];
+                      return SizedBox(
+                        width: double.infinity, // Make each item take full width
+                        child: TermAccordion(
+                          termId: term["id"].toString(),
+                          fallbackLabel: title,
+                          isEnglishUS: widget.isEnglishUS,
+                          locale: widget.locale,
+                          isAutoExpand: true,
+                          isOffline: isAppOffline,
+                        ),
+                      );
+                    },
+                  ));
+                },
               )
             )
           ),
@@ -200,61 +175,19 @@ class _TermAccordionState extends State<TermAccordion> {
   }
 
   Future<void> fetchNotes(currentNodeId)  async {
-    if (isAppOffline) {
-      List<Map<String, dynamic>> notes = await Offline().getNotesByNode(int.parse(currentNodeId), db);
-      setState(() {
-        userNotes = notes;
-        isLoading = false;
-      });
-    }
-    else {
-      await getUserID().then((currentUserId) async {
-        final GraphQLClient graphQLClient = client.value;
-        final QueryResult res = await graphQLClient.query(
-            QueryOptions(document: gql(getNotesForNode),
-                variables: {
-                  'nodeId': currentNodeId.toString(),
-                  'user_id': currentUserId
-                })
-        ).then((result) {
-          List<Map<String, dynamic>> notes = List<Map<String, dynamic>>.from(
-              result.data?['entityQuery']['items'] ?? []);
-          setState(() {
-            userNotes = notes;
-            isLoading = false;
-          });
-          return result;
-        });
-      });
-    }
+    List<Map<String, dynamic>> notes = await Offline().getNotesByNode(int.parse(currentNodeId), db);
+    setState(() {
+      userNotes = notes;
+      isLoading = false;
+    });
   }
 
   // fetches the content under the current taxonomy term and child terms
   void fetchContentAndChildren() async {
     List foundItems = [];
     List childItems = [];
-    if (isAppOffline) {
-      foundItems = await Offline().getNodesByTaxonomyId(widget.termId, widget.locale, 'conceptual_framework', db);
-      childItems = await Offline().getCFTerms(db, widget.termId);
-    }
-    else {
-      final client = GraphQLProvider
-          .of(context)
-          .value;
-      final termContentResult = await client.query(QueryOptions(
-        document: gql(getCFNodesByTerm),
-        variables: {"termId": widget.termId, 'langcode': widget.locale},
-      ));
-
-      final childTermsResult = await client.query(QueryOptions(
-        document: gql(getChildCFTerms),
-        variables: {
-          "parentIds": [widget.termId]
-        },
-      ));
-      foundItems = termContentResult.data?["entityQuery"]["items"] ?? [];
-      childItems = childTermsResult.data?["entityQuery"]["items"] ?? [];
-    }
+    foundItems = await Offline().getNodesByTaxonomyId(widget.termId, widget.locale, 'conceptual_framework', db);
+    childItems = await Offline().getCFTerms(db, widget.termId);
     setState(() {
       List items = foundItems;
       termContent = items.isNotEmpty ? items[0] : null;
@@ -274,10 +207,8 @@ class _TermAccordionState extends State<TermAccordion> {
 
   @override
   Widget build(BuildContext context) {
-    var widgetContent = (isAppOffline ? parseHtmlString(termContent?['body'] ?? '') : parseHtmlString(termContent?['translation']?['bodyRawField']?['getString'] ?? ''));
-    var termTitle = (isAppOffline ? (termContent?['label'] ?? termContent?['title']) : (termContent?['translation']?['titleRawField']
-    ?['getString'] ??
-        widget.fallbackLabel));
+    var widgetContent = parseHtmlString(termContent?['body'] ?? '');
+    var termTitle = (termContent?['label'] ?? termContent?['title']);
     mainWidget = TableRow(
         children: [
         ExpansionTile(
