@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../models/menu.dart';
 import '../services/auth.dart';
+import '../widgets/left_drawer.dart';
 
 // screen that renders when the user selected Conceptual Frameworks from main menu page
 class ConceptualFrameworksScreen extends StatefulWidget {
@@ -59,6 +60,12 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
       key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
       appBar: appbar,
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        currentScreen: 'conceptual_framework',
+      ),
       body: SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

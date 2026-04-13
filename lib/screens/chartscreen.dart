@@ -10,6 +10,7 @@ import '../services/auth.dart';
 import '../services/Offline.dart';
 import 'loadingScreen.dart';
 import 'home.dart';
+import '../widgets/left_drawer.dart';
 
 // screen that renders when user selected Allen Cognitive Levels
 class TaxonomyHierarchyScreen extends StatefulWidget {
@@ -184,18 +185,36 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        currentScreen: 'allen_cognitive_levels',
+      ),
       appBar: AppBar(
-        leading:  IconButton(
-          icon: Icon(
-            Icons.home,
-            color: Colors.white.withOpacity(0.85),
-            size: 20,
-          ),
-          onPressed: () => Navigator.push(
-            context, MaterialPageRoute(
-              builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
-            )
-          )
+        automaticallyImplyLeading: false,
+        leadingWidth: 96,
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              tooltip: 'Navigation menu',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.home,
+                color: Colors.white.withOpacity(0.85),
+                size: 20,
+              ),
+              onPressed: () => Navigator.push(
+                context, MaterialPageRoute(
+                  builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
+                )
+              )
+            ),
+          ],
         ),
         title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
         actions: [

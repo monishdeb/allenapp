@@ -11,6 +11,7 @@ import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../Env.dart';
+import '../widgets/left_drawer.dart';
 
 // screen that renders when the user presses ACLS-6 from the main menu
 // split into two sections: ACLS section and Activities section
@@ -94,6 +95,12 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
     return Scaffold(
       key: _scaffoldKey,
       endDrawer: menu,
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        currentScreen: 'acls_6',
+      ),
       appBar: appbar,
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
