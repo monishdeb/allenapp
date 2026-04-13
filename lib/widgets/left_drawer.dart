@@ -48,7 +48,7 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
-          if (currentScreen != 'conceptual_framework')
+          if (currentScreen != 'conceptual_framework') ...[
             ListTile(
               title: const Text(
                 'Conceptual Framework',
@@ -64,8 +64,9 @@ class LeftNavDrawer extends StatelessWidget {
                 ),
               ),
             ),
-          const Divider(height: 1),
-          if (currentScreen != 'allen_cognitive_levels')
+            const Divider(height: 1),
+          ],
+          if (currentScreen != 'allen_cognitive_levels') ...[
             ListTile(
               title: const Text(
                 'Allen Cognitive Levels',
@@ -81,8 +82,9 @@ class LeftNavDrawer extends StatelessWidget {
                 ),
               ),
             ),
-          const Divider(height: 1),
-          if (currentScreen != 'acls_6')
+            const Divider(height: 1),
+          ],
+          if (currentScreen != 'acls_6') ...[
             ListTile(
               title: const Text(
                 'ACLS-6 Activities',
@@ -98,7 +100,8 @@ class LeftNavDrawer extends StatelessWidget {
                 ),
               ),
             ),
-          const Divider(height: 1),
+            const Divider(height: 1),
+          ],
           ListTile(
             title: const Text(
               'Search',
