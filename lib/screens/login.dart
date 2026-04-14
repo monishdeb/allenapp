@@ -53,23 +53,29 @@ class _loginPageState extends State<LoginPage> {
   }
 
   Future<void> _authenticate(BuildContext context, bool forceLogin) async {
+    // Capture navigator reference FIRST, before any async operations
+    final navigator = Navigator.of(context);
+
     int expiryTime = await getExpiry() ?? 0;
     var now = DateTime.now().millisecondsSinceEpoch;
     var isOffline = await getOfflineStatus() ?? false;
     var languageCode = await getLangaugeCode() ?? '';
     var database = db;
+
     if (!isOffline) {
       String? token = await getToken();
 
       if (token == null || token == '' || forceLogin) {
         if ((formData.username ?? '').isEmpty) {
-          Navigator.push(
-            context,
+          if (!mounted) return;
+          navigator.push(
             MaterialPageRoute(builder: (context) => LoginPage(title: 'Allen App', authenticated: true, forceLogin: true))
           );
+          return;
         }
         var accessToken = await authenticateUser(formData.username, formData.password);
         if (accessToken == null || accessToken.isEmpty) {
+          if (!mounted) return;
           final snackBar = SnackBar(
           backgroundColor: Color.fromRGBO(213, 31, 39, 1),
             content: Row(
@@ -115,23 +121,61 @@ class _loginPageState extends State<LoginPage> {
         token = await getNewToken();
       }
       await setLastPinCodeRequest();
+
+      if (!mounted) return;
+      // Consolidated online navigation logic
+      if (pin_code.isEmpty) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) => LoginPage(
+              title: 'Allen App',
+              authenticated: true,
+              forceLogin: forceLogin,
+            ),
+          ),
+        );
+        return;
+      }
+      else if (languageCode.isNotEmpty) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) => HomePage(
+              isEnglishUS: (languageCode == 'EN'),
+              locale: languageCode,
+              isOffline: isOffline,
+            ),
+          ),
+        );
+        return;
+      }
+      else {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (context) => LanguageSelectionPage(isOffline: isOffline),
+          ),
+        );
+        return;
+      }
     }
     else {
       int offlineDate = await getOfflineDate();
       var originalDateObject = DateTime.fromMillisecondsSinceEpoch(offlineDate);
       var expiryDate = originalDateObject.add(const Duration(days: 7));
+
+      if (!mounted) return;
       if (pin_code.isEmpty) {
-        Navigator.push(
-            context,
+        navigator.push(
             MaterialPageRoute(builder: (context) => LoginPage(title: 'Allen App', authenticated: true))
         );
+        return;
       }
       if (now >= expiryDate.millisecondsSinceEpoch) {
         await setLastPinCodeRequest();
-        Navigator.push(
-          context,
+        if (!mounted) return;
+        navigator.push(
           MaterialPageRoute(builder: (context) => AppAccessBlocked(locale: languageCode))
         );
+        return;
       }
       else if (languageCode.isNotEmpty) {
         if (database == null || !database.isOpen) {
@@ -141,10 +185,11 @@ class _loginPageState extends State<LoginPage> {
           await Offline().getSourceData(database, false);
         }
         await setLastPinCodeRequest();
-        Navigator.push(
-            context,
+        if (!mounted) return;
+        navigator.push(
             MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN'), locale: languageCode, isOffline: isOffline))
         );
+        return;
       }
       else {
         if (database == null || !database.isOpen) {
@@ -154,35 +199,14 @@ class _loginPageState extends State<LoginPage> {
           await Offline().getSourceData(database, false);
         }
         await setLastPinCodeRequest();
-        Navigator.push(
-            context,
+        if (!mounted) return;
+        navigator.push(
             MaterialPageRoute(
               builder: (context) => LanguageSelectionPage(isOffline: isOffline),
             )
         );
+        return;
       }
-    }
-    if (pin_code.isEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => LoginPage(title: 'Allen App', authenticated: true, forceLogin: widget.forceLogin))
-      );
-    }
-    else if (languageCode.isNotEmpty && !isOffline) {
-      await setLastPinCodeRequest();
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage(isEnglishUS: (languageCode == 'EN'), locale: languageCode, isOffline: isOffline))
-      );
-    }
-    else if (!isOffline) {
-      await setLastPinCodeRequest();
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LanguageSelectionPage(isOffline: isOffline),
-        )
-      );
     }
   }
 
@@ -278,13 +302,16 @@ class _loginPageState extends State<LoginPage> {
                 ),
                 onPressed: () => showDialog<void>(
                   context: context,
-                  builder: (context) {
+                  builder: (dialogContext) {
                     return ScreenLock(
                       correctString: pin_code,
-                      onCancelled: Navigator
-                        .of(context)
-                        .pop,
-                        onUnlocked: () => {_authenticate(context, false)},
+                      onCancelled: Navigator.of(dialogContext).pop,
+                      onUnlocked: () {
+                        Navigator.of(dialogContext).pop();
+                        if (mounted) {
+                          _authenticate(context, false);
+                        }
+                      },
                     );
                   },
                 ),
