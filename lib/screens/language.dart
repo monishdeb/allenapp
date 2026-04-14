@@ -134,16 +134,6 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
             );
       }
     }
-    LanguageWidgets.add(TableRow(children: [
-     Padding(
-       padding: const EdgeInsets.all(8.0),
-       child: Text(
-         'Ensure that you have selected correct language before continuing.',
-         style: TextStyle(fontSize: 16),
-       ),
-     ),
-    ]));
-
     return PopScope(
       canPop: false, // disables all back navigation
       onPopInvoked: (didPop) {
@@ -169,6 +159,9 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
                     color: Colors.white,
                     child: Table(
                       columnWidths: const {0: FlexColumnWidth(),},
+                      border: TableBorder(
+                        horizontalInside: BorderSide(color: Colors.grey[300] ?? Colors.grey),
+                      ),
                       children: LanguageWidgets
                     )
                   ),
