@@ -1,7 +1,4 @@
 import 'package:allenapp/screens/loadingScreen.dart';
-import '../models/menu.dart';
-import '../widgets/custom_app_bar.dart';
-import '../widgets/left_drawer.dart';
 import 'package:flutter/material.dart';
 import 'chartscreen.dart';
 import 'cf.dart';
@@ -9,6 +6,9 @@ import 'acls6.dart';
 import 'singleappinfopage.dart';
 import '../models/footer.dart';
 import '../services/auth.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
+
 class HomePage extends StatefulWidget {
   final bool isEnglishUS;
   final String locale;
@@ -51,14 +51,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     if (isLoading) return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
 
-    final Menu menu = Menu(
-      scaffoldKey: _scaffoldKey,
-      locale: widget.locale,
-      isEnglishUS: widget.isEnglishUS,
-      isOffline: isAppOffline,
-      onOfflineChange: _onChangeOffline,
-    );
-
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
@@ -95,6 +87,7 @@ class _HomePageState extends State<HomePage> {
                           borderRadius: BorderRadius.zero,
                           child: MoreOptionsDrawer(
                             locale: widget.locale,
+                            isEnglishUS: widget.isEnglishUS,
                             isOffline: isAppOffline,
                           ),
                         ),
@@ -116,6 +109,7 @@ class _HomePageState extends State<HomePage> {
           locale: widget.locale,
           isEnglishUS: widget.isEnglishUS,
           isOffline: isAppOffline,
+          currentScreen: 'home',
         ),
         body: SingleChildScrollView(
           child: Column(

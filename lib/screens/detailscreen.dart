@@ -11,7 +11,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_platform_alert/flutter_platform_alert.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
-import '../models/menu.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/arrow_label.dart';
@@ -19,6 +18,8 @@ import '../models/selectableText.dart';
 import '../Env.dart';
 import 'loadingScreen.dart';
 import 'chartscreen.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
 
 // screen renders when user selects one of the Allen Cognitive Level terms on chart screen
 class TaxonomyDetailScreen extends StatefulWidget {
@@ -515,29 +516,65 @@ Future<void> fetchNavigationTerms(String termId) async {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       leading:  IconButton(
-          icon: Icon(
-            Icons.home,
-            color: Colors.white.withOpacity(0.85),
-            size: 20,
-          ),
-          onPressed: () => Navigator.push(
-             context, MaterialPageRoute(
-                 builder: (context) => TaxonomyHierarchyScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
-             )
-           )
-        ),
-       title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+    var appbar = CustomAppBar(
+      scaffoldKey: _scaffoldKey,
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+      onMoreOptionsPressed: () {
+      showGeneralDialog(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+          barrierColor: Colors.black54,
+          transitionDuration: const Duration(milliseconds: 300),
+          pageBuilder: (context, animation, secondaryAnimation) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.5,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 110), // Add top padding
+                    child: Material(
+                      borderRadius: BorderRadius.zero,
+                      child: MoreOptionsDrawer(
+                        locale: widget.locale,
+                        isEnglishUS: widget.isEnglishUS,
+                        isOffline: isAppOffline,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
-    var drawer = null;
+    var left_drawer = LeftNavDrawer(
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+    );
+    var settings_drawer = SettingsDrawer(
+      locale: widget.locale,
+      isEnglishUS: widget.isEnglishUS,
+      isOffline: isAppOffline,
+      onOfflineChange: _onChangeOffline,
+    );
     if (isLoading) {
       return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     if (contentNodes.isEmpty && childTermContent.isEmpty) {
       return Scaffold(
         appBar: appbar,
+        endDrawer: settings_drawer,
+        drawer: left_drawer,
         body: SizedBox.shrink(),
       );
     }
@@ -762,7 +799,7 @@ Future<void> fetchNavigationTerms(String termId) async {
           },
         )
       ));
-      drawer = Drawer(
+      var drawer = Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
             children: tiles,
@@ -772,9 +809,9 @@ Future<void> fetchNavigationTerms(String termId) async {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
-      endDrawer: menu,
       appBar: appbar,
-      drawer: drawer,
+      endDrawer: settings_drawer,
+      drawer: left_drawer,
       body: SingleChildScrollView(
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

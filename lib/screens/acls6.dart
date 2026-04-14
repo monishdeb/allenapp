@@ -5,12 +5,13 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
 import 'aclsdetails.dart';
 import 'activitystart.dart';
-import '../models/menu.dart';
 import '../models/footer.dart';
 import 'package:footer/footer_view.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../Env.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
 
 // screen that renders when the user presses ACLS-6 from the main menu
 // split into two sections: ACLS section and Activities section
@@ -82,19 +83,64 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
-    var appbar = AppBar(
-       title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
-       actions: [IconButton(onPressed: menu.openEndDrawer, icon: Icon(Icons.menu))]
-    );
     if (isLoading) {
       return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     final client = GraphQLProvider.of(context).value;
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: menu,
-      appBar: appbar,
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onMoreOptionsPressed: () {
+        showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            barrierColor: Colors.black54,
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 110), // Add top padding
+                      child: Material(
+                        borderRadius: BorderRadius.zero,
+                        child: MoreOptionsDrawer(
+                          locale: widget.locale,
+                          isEnglishUS: widget.isEnglishUS,
+                          isOffline: isAppOffline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        currentScreen: 'acls_6',
+      ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
         children: [

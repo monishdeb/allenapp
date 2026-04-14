@@ -9,17 +9,18 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:footer/footer_view.dart';
 import '../services/auth.dart';
 import '../models/footer.dart';
-import '../models/menu.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../screens/detailscreen.dart';
 import '../services/Notes.dart';
-
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
 
 class NotesPage extends StatefulWidget {
   final String locale;
   final bool isOffline;
+  final bool isEnglishUS;
 
-  const NotesPage({Key? key, required String this.locale, required this.isOffline}): super(key: key);
+  const NotesPage({Key? key, required String this.locale, required this.isEnglishUS, required this.isOffline}): super(key: key);
 
   @override
   _NotesPageState createState() => _NotesPageState();
@@ -106,16 +107,59 @@ class _NotesPageState extends State<NotesPage> {
     if (loading) {
       return loadingScreen(isEnglishUS: (widget.locale == 'EN'), locale: widget.locale);
     }
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: (widget.locale == 'EN'), isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Text(
-          'Saved Notes',
-          style: TextStyle(fontFamily: 'helvetica,sans-serif', color: Colors.white, fontWeight: FontWeight.bold)
-        )
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onMoreOptionsPressed: () {
+        showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            barrierColor: Colors.black54,
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 110), // Add top padding
+                      child: Material(
+                        borderRadius: BorderRadius.zero,
+                        child: MoreOptionsDrawer(
+                          locale: widget.locale,
+                          isEnglishUS: widget.isEnglishUS,
+                          isOffline: isAppOffline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
-      endDrawer: menu,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
       body: FooterView(
         footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN')),
         flex: 1,

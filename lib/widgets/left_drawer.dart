@@ -3,17 +3,20 @@ import '../screens/chartscreen.dart';
 import '../screens/cf.dart';
 import '../screens/acls6.dart';
 import '../screens/search.dart';
+import '../screens/home.dart';
 
 class LeftNavDrawer extends StatelessWidget {
   final String locale;
   final bool isEnglishUS;
   final bool isOffline;
+  final String currentScreen;
 
   const LeftNavDrawer({
     Key? key,
     required this.locale,
     required this.isEnglishUS,
     required this.isOffline,
+    this.currentScreen = '',
   }) : super(key: key);
 
   void _navigate(BuildContext context, Widget screen) {
@@ -29,6 +32,9 @@ class LeftNavDrawer extends StatelessWidget {
     return Padding(
     padding: const EdgeInsets.only(top: 110),
     child: Drawer(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+      ),
       child: Container(
       color: Colors.white,
       child: Column(
@@ -46,54 +52,78 @@ class LeftNavDrawer extends StatelessWidget {
               ),
             ),
           ),
-          ListTile(
-            title: const Text(
-              'Conceptual Framework',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              ConceptualFrameworksScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
+          if (currentScreen != 'home') ...[
+            ListTile(
+              title: const Text(
+                'Home',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () => _navigate(
+                context,
+                HomePage(
+                  isEnglishUS: isEnglishUS,
+                  locale: locale,
+                  isOffline: isOffline,
+                ),
               ),
             ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text(
-              'Allen Cognitive Levels',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              TaxonomyHierarchyScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
+            const Divider(height: 1),
+          ],
+          if (currentScreen != 'conceptual_framework') ...[
+            ListTile(
+              title: const Text(
+                'Conceptual Framework',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () => _navigate(
+                context,
+                ConceptualFrameworksScreen(
+                  isEnglishUS: isEnglishUS,
+                  locale: locale,
+                  isOffline: isOffline,
+                ),
               ),
             ),
-          ),
-          const Divider(height: 1),
-          ListTile(
-            title: const Text(
-              'ACLS-6 Activities',
-              style: TextStyle(fontSize: 16),
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => _navigate(
-              context,
-              AclsTermsScreen(
-                isEnglishUS: isEnglishUS,
-                locale: locale,
-                isOffline: isOffline,
+            const Divider(height: 1),
+          ],
+          if (currentScreen != 'allen_cognitive_levels') ...[
+            ListTile(
+              title: const Text(
+                'Allen Cognitive Levels',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () => _navigate(
+                context,
+                TaxonomyHierarchyScreen(
+                  isEnglishUS: isEnglishUS,
+                  locale: locale,
+                  isOffline: isOffline,
+                ),
               ),
             ),
-          ),
-          const Divider(height: 1),
+            const Divider(height: 1),
+          ],
+          if (currentScreen != 'acls_6') ...[
+            ListTile(
+              title: const Text(
+                'ACLS-6 Activities',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () => _navigate(
+                context,
+                AclsTermsScreen(
+                  isEnglishUS: isEnglishUS,
+                  locale: locale,
+                  isOffline: isOffline,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+          ],
           ListTile(
             title: const Text(
               'Search',

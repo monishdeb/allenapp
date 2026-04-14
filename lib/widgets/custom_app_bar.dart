@@ -124,6 +124,9 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
     return Padding(
     padding: const EdgeInsets.only(top: 110),
     child: Drawer(
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+      ),
       child: Container(
         color: Colors.white,
         child: ListView(
@@ -268,11 +271,13 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
 
 class MoreOptionsDrawer extends StatelessWidget {
   final String locale;
+  final bool isEnglishUS;
   final bool isOffline;
 
   const MoreOptionsDrawer({
     Key? key,
     required this.locale,
+    required this.isEnglishUS,
     required this.isOffline,
   }) : super(key: key);
 
@@ -305,6 +310,7 @@ class MoreOptionsDrawer extends StatelessWidget {
                 MaterialPageRoute(
                   builder: (context) => NotesPage(
                     locale: locale,
+                    isEnglishUS: isEnglishUS,
                     isOffline: isOffline,
                   ),
                 ),

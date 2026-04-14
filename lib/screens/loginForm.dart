@@ -37,118 +37,161 @@ class _LoginFormState extends State<LoginForm> {
       return loadingScreen(locale: widget.locale, isEnglishUS: widget.isEnglishUS);
     }
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              color: Color.fromRGBO(213, 31, 39, 1),
-              padding: const EdgeInsets.only(top: 5, bottom: 5),
-              alignment: Alignment.center,
+  backgroundColor: Colors.white,
+  resizeToAvoidBottomInset: true,
+
+  appBar: PreferredSize(
+    preferredSize: const Size.fromHeight(100),
+    child: AppBar(
+      automaticallyImplyLeading: false,
+      backgroundColor: const Color.fromRGBO(213, 31, 39, 1),
+      elevation: 0,
+      flexibleSpace: SafeArea(
+        child: Center(
+          child: Image.asset(
+            "images/Allen_App_title.png",
+            height: 50,
+          ),
+        ),
+      ),
+    ),
+  ),
+  body: SafeArea(
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          keyboardDismissBehavior:
+              ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: IntrinsicHeight(
               child: Column(
-                children: const [
-                  Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+                children: [
+                  SizedBox(height: 150),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // Username
+                        TextFormField(
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(
+                              Icons.email_outlined,
+                              color: Color.fromRGBO(213, 31, 39, 1),
+                            ),
+                            hintText: 'Username',
+                            border: const OutlineInputBorder(),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color.fromRGBO(213, 31, 39, 1),
+                              ),
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              widget.formData.username = value,
+                        ),
+                        const SizedBox(height: 20),
+                        // Password
+                        TextFormField(
+                          obscureText: _obscureText,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(
+                              Icons.lock_outline,
+                              color: Color.fromRGBO(213, 31, 39, 1),
+                            ),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscureText = !_obscureText;
+                                });
+                              },
+                              icon: Icon(
+                                _obscureText
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            hintText: 'Password',
+                            border: const OutlineInputBorder(),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Color.fromRGBO(213, 31, 39, 1),
+                              ),
+                            ),
+                          ),
+                          onChanged: (value) =>
+                              widget.formData.password = value,
+                        ),
+                        const SizedBox(height: 30),
+                        // Login button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  const Color.fromRGBO(213, 31, 39, 1),
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.zero,
+                              ),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            onPressed: () async {
+                              setState(() {
+                                loading = true;
+                              });
+                              widget.submitFunction(context, true);
+                            },
+                            child: const Text(
+                              'Log in',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Reset Password
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => optRequestScreen(
+                                  isEnglishUS: widget.isEnglishUS,
+                                  locale: widget.locale,
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Reset your password',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
                 ],
               ),
             ),
-            const SizedBox(height: 300),
-            // Login form
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Form(
-                key: _formKey,
-                child: Column(
+          ),
+        );
+      },
+    ),
+  ),
+);
 
-                  children: [
-                    // Username
-                    TextFormField(
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.email_outlined,
-                            color: Color.fromRGBO(213, 31, 39, 1)),
-                        hintText: 'Username',
-                        border: const OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color.fromRGBO(213, 31, 39, 1)),
-                        ),
-                      ),
-                      onChanged: (value) => formData.username = value,
-                    ),
-                    const SizedBox(height: 20),
-                    // Password
-                    TextFormField(
-                      obscureText: _obscureText,
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.lock_outline,
-                            color: Color.fromRGBO(213, 31, 39, 1)),
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _obscureText = !_obscureText;
-                            });
-                          },
-                          icon: Icon(
-                            _obscureText
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        hintText: 'Password',
-                        border: const OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Color.fromRGBO(213, 31, 39, 1)),
-                        ),
-                      ),
-                      onChanged: (value) => formData.password = value,
-                    ),
-                    const SizedBox(height: 30),
-                    // Login button
-                    ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color.fromRGBO(213, 31, 39, 1),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(0),
-                          ),
-                        ),
-                        onPressed: () async {
-                          setState(() {
-                            loading = true;
-                          });
-                          widget.submitFunction(context, true);
-                        },
-                        child: const Text(
-                          'Log in',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 30),
-                    // Reset Password
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => optRequestScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale))
-                        );
-                      },
-                      child: const Text(
-                        'Reset your password',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

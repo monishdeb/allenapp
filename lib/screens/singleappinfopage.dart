@@ -5,10 +5,11 @@ import '../services/query.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import '../models/menu.dart';
 import '../models/footer.dart';
 import '../services/auth.dart';
 import 'home.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
 
 class SingleAppInfoPage extends StatefulWidget {
   final bool isEnglishUS;
@@ -70,29 +71,63 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, locale: widget.locale, isEnglishUS: widget.isEnglishUS, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     if (isLoading) {
       return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
     }
     return Scaffold(
       backgroundColor: Colors.grey[200],
       key: _scaffoldKey,
-      appBar: AppBar(
-        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
-        leading:  IconButton(
-          icon: Icon(
-            Icons.home,
-            color: Colors.white.withOpacity(0.85),
-            size: 20,
-          ),
-          onPressed: () => Navigator.push(
-            context, MaterialPageRoute(
-              builder: (context) => HomePage(isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline)
-            )
-          )
-        ),
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onMoreOptionsPressed: () {
+        showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            barrierColor: Colors.black54,
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 110), // Add top padding
+                      child: Material(
+                        borderRadius: BorderRadius.zero,
+                        child: MoreOptionsDrawer(
+                          locale: widget.locale,
+                          isEnglishUS: widget.isEnglishUS,
+                          isOffline: isAppOffline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
-      endDrawer: menu,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

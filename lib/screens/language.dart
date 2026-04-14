@@ -96,6 +96,9 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
       ]));
     if (appLanguages.isNotEmpty) {
       for (var appLanguage in appLanguages) {
+        if (!['EN', 'EN_GB'].contains(appLanguage['langcode'])) {
+          continue;
+        }
         var iconcode = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? 'us' : 'gb') : appLanguage['langcode'].toLowerCase());
         var subtext = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? ' - imperial units' : ' - metric units') : ' - metric units');
         LanguageWidgets.add(

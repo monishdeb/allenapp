@@ -1,6 +1,5 @@
 import 'package:allenapp/services/Offline.dart';
 
-import '../models/menu.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
@@ -9,6 +8,8 @@ import '../models/footer.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../Env.dart';
+import '../widgets/custom_app_bar.dart';
+import '../widgets/left_drawer.dart';
 
 // screen for ACLS-6 taxonomy/content type
 // renders when the user presses one of the content nodes on ACLS-6 page
@@ -67,14 +68,60 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var menu = Menu(scaffoldKey: _scaffoldKey, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, onOfflineChange: _onChangeOffline);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
-      appBar: AppBar(
-        title: Image(image: AssetImage("images/Allen_App_title.png"), height: 50),
+      appBar: CustomAppBar(
+        scaffoldKey: _scaffoldKey,
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onMoreOptionsPressed: () {
+        showGeneralDialog(
+            context: context,
+            barrierDismissible: true,
+            barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+            barrierColor: Colors.black54,
+            transitionDuration: const Duration(milliseconds: 300),
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(1.0, 0.0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.5,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 110), // Add top padding
+                      child: Material(
+                        borderRadius: BorderRadius.zero,
+                        child: MoreOptionsDrawer(
+                          locale: widget.locale,
+                          isEnglishUS: widget.isEnglishUS,
+                          isOffline: isAppOffline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
       ),
-      endDrawer: menu,
+      endDrawer: SettingsDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+        onOfflineChange: _onChangeOffline,
+      ),
+      drawer: LeftNavDrawer(
+        locale: widget.locale,
+        isEnglishUS: widget.isEnglishUS,
+        isOffline: isAppOffline,
+      ),
       body: SingleChildScrollView(
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
