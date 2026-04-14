@@ -255,7 +255,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
               child: Container(
                 color: Colors.white,
                 child: SizedBox(
-                  height: 610,
+                  height: 700,
                   child: Center(
                     child: SizedBox(
                       width: MediaQuery.of(context).size.width * 0.95,
@@ -271,7 +271,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                   Term term = parentTerms[count1];
                                   count1++;
                                   return Table(
-                                    border: TableBorder.all(),
+                                    border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                     columnWidths: const {
                                       0: FlexColumnWidth(1),
                                     },
@@ -315,7 +315,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                     ? childTerms[count2++]
                                     : Term(id: '', label: 'N/A', colour: '#FFFFFF');
                                   return Table(
-                                    border: TableBorder.all(),
+                                    border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                     columnWidths: const {0: FlexColumnWidth()},
                                     children: [
                                       TableRow(
@@ -397,7 +397,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                 }
 
                                 return Table(
-                                  border: TableBorder.all(),
+                                  border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                   columnWidths: columnCount == 2
                                     ? const {
                                       0: FlexColumnWidth(3),
