@@ -29,6 +29,7 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   bool loading = true;
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   List<Map<String, dynamic>> notes = [];
   Map<String?,String> nodeTaxonomyCache = {};
   Map<String?,String> nodeBodyCache = {};
@@ -38,8 +39,15 @@ class _NotesPageState extends State<NotesPage> {
   void initState() {
     super.initState();
     loading = true;
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
     getNotes();
+  }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
   }
 
   Future<void> getNotes() async {
@@ -56,7 +64,7 @@ class _NotesPageState extends State<NotesPage> {
     setState(() {
       notes = [];
     });
-    items = await Offline().getAllNotes(db, widget.locale);
+    items = await Offline().getAllNotes(db, currentLocale);
     for (var item in items) {
       var noteId = item['id'];
       var note = item['note'];
@@ -105,13 +113,13 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return loadingScreen(isEnglishUS: (widget.locale == 'EN'), locale: widget.locale);
+      return loadingScreen(isEnglishUS: (currentLocale == 'EN'), locale: currentLocale);
     }
     return Scaffold(
       key: _scaffoldKey,
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
@@ -136,7 +144,7 @@ class _NotesPageState extends State<NotesPage> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
+                          locale: currentLocale,
                           isEnglishUS: widget.isEnglishUS,
                           isOffline: isAppOffline,
                         ),
@@ -150,18 +158,19 @@ class _NotesPageState extends State<NotesPage> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
       ),
       body: FooterView(
-        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: (widget.locale == 'EN')),
+        footer: AllenAppFooter(locale: currentLocale, isEnglishUS: (currentLocale == 'EN')),
         flex: 1,
         children: [
           Container(
@@ -205,8 +214,8 @@ class _NotesPageState extends State<NotesPage> {
                                             MaterialPageRoute(
                                               builder: (context) => TaxonomyDetailScreen(
                                                   id: note['taxonomyId'],
-                                                  isEnglishUS: (widget.locale == 'EN_US'),
-                                                  locale: widget.locale,
+                                                  isEnglishUS: (currentLocale == 'EN_US'),
+                                                  locale: currentLocale,
                                                   isOffline: isAppOffline
                                               ),
                                             ),
@@ -215,11 +224,11 @@ class _NotesPageState extends State<NotesPage> {
                                         else if (note['nodeType'] == 'conceptual_framework' || note['node_type'] == 'conceptual_framework') {
                                           Navigator.push(
                                               context,
-                                              MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: (widget.locale == 'en'), locale: widget.locale, isOffline: isAppOffline))
+                                              MaterialPageRoute(builder: (context) => ConceptualFrameworksScreen(isEnglishUS: (currentLocale == 'en'), locale: currentLocale, isOffline: isAppOffline))
                                           );
                                         }
                                         else if (note['nodeType'] == 'acls_6_activities' || note['node_type'] == 'acls_6_activities') {
-                                           fetchTargetData(context, note['taxonomyId'], widget.locale, isAppOffline);
+                                           fetchTargetData(context, note['taxonomyId'], currentLocale, isAppOffline);
                                         }
                                         else if (note['nodeType'] == 'acls6' || note['node_type'] == 'acls6') {
                                           Navigator.push(
@@ -228,9 +237,9 @@ class _NotesPageState extends State<NotesPage> {
                                               termId: note['taxonomyId'],
                                               body: note['nodeBody'],
                                               nodeId: note['nodeId'],
-                                              locale: widget.locale,
+                                              locale: currentLocale,
                                               label: note['nodeLabel'],
-                                              isEnglishUS: (widget.locale == 'EN_US'),
+                                              isEnglishUS: (currentLocale == 'EN_US'),
                                               isOffline: isAppOffline
                                             ))
                                           );

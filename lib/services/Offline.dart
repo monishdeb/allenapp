@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -13,18 +14,18 @@ import 'query.dart';
 
 class Offline {
 
-  Future initDatabase(bool isReOpen) async {
+  Future<Database> initDatabase(bool isReOpen) async {
     if (!kIsWeb && (Platform.isAndroid || Platform.isLinux)) {
       sqfliteFfiInit();
     }
     if (kIsWeb) {
       databaseFactory = databaseFactoryFfiWeb;
     }
-    var database = await openDatabase(join(await getDatabasesPath(), 'allen_app.db'), version: 1,
+    Database database = await openDatabase(join(await getDatabasesPath(), 'allen_app.db'), version: 1,
       onCreate: (Database db, int version) async {
         return db.execute('CREATE TABLE taxonomy (id INTEGER PRIMARY KEY, vid TEXT, parent_id INTEGER, title TEXT, weight INTEGER, colour TEXT, current INTEGER)').then((val) async {
-          await db.execute('CREATE TABLE node (id INTEGER, node_type TEXT, title TEXT, body TEXT, content_type TEXT, langcode TEXT, activity_id INTEGER, last_updated INTEGER, current INTEGER, PRIMARY KEY (id, langcode))');
-          await db.execute('CREATE TABLE taxonomy_node (id INTEGER PRIMARY KEY, taxonomy_id INTEGER, node_id INTEGER, langcode TEXT, current INTEGER)');
+          await db.execute('CREATE TABLE node (id INTEGER, node_type TEXT, title TEXT, body TEXT, content_type TEXT, langcode TEXT, activity_id INTEGER, last_updated INTEGER, PRIMARY KEY (id, langcode))');
+          await db.execute('CREATE TABLE taxonomy_node (id INTEGER PRIMARY KEY, taxonomy_id INTEGER, node_id INTEGER, langcode TEXT)');
           await db.execute('CREATE TABLE notes (id INTEGER PRIMARY KEY, user_id INTEGER, node_id INTEGER, note TEXT, selected_text TEXT, start_position INTEGER, end_position INTEGER, is_synced INTEGER, upstream_id, INTEGER, current INTEGER)');
           await db.execute('CREATE TABLE activity_decision (id INTEGER PRIMARY KEY, node_id INTEGER, decision_labels TEXT, decision_targets TEXT, decision_taxonomy_ids TEXT, decision_body TEXT, last_updated INTEGER, langcode TEXT, current INTEGER)');
         });
@@ -32,9 +33,9 @@ class Offline {
       onOpen: (Database db) async {
         await getSourceData(db, isReOpen);
         dbIsReady = true;
-        await setLastSyncDate(DateTime.now().millisecondsSinceEpoch);
       },
     );
+    db = database;
     return database;
   }
 
@@ -48,13 +49,40 @@ class Offline {
       await db.execute("DELETE FROM taxonomy_node");
       await db.execute("DELETE FROM activity_decision");
     }
+    var isAppOffline = await getOfflineStatus();
+    if (isAppOffline) {
+      return;
+    }
     var offlineDate = await getLastSyncDate() ?? 0;
     var now = DateTime.now();
     var check = now.subtract(const Duration(hours: 12));
     if (offlineDate > check.millisecondsSinceEpoch) {
       return;
     }
-    urlParam = '?changed=' + offlineDate.toString();
+    var forceRefreshData = await getForceRefreshData();
+    if (forceRefreshData) {
+      urlParam = '?changed=0';
+    }
+    else {
+      urlParam = '?changed=' + offlineDate.toString();
+    }
+    List<dynamic> nodeIds = [];
+    List<dynamic> taxonomyIds = [];
+    List<dynamic> notesIds = [];
+    var nodeIdsResponse = await http.get(
+      Uri.parse('https://' + Env.DRUPAL_URL + '/bmfeeds/node-id-feed'),
+      headers: {HttpHeaders.authorizationHeader: token},
+    );
+    if (nodeIdsResponse.statusCode == 200) {
+      nodeIds = jsonDecode(nodeIdsResponse.body);
+    }
+    var taxonomyIdsResponse = await http.get(
+      Uri.parse('https://' + Env.DRUPAL_URL + '/bmfeeds/taxonomy-id-feed'),
+      headers: {HttpHeaders.authorizationHeader: token},
+    );
+    if (taxonomyIdsResponse.statusCode == 200) {
+      taxonomyIds = jsonDecode(taxonomyIdsResponse.body);
+    }
     var taxonomyResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/taxonomy-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
@@ -63,7 +91,6 @@ class Offline {
       return;
     }
     final taxonomyResponseJson = jsonDecode(taxonomyResponse.body) as List<dynamic>;
-    await db.execute("UPDATE taxonomy SET current = 0");
     for (var i = 0; i < taxonomyResponseJson.length; i++) {
       if (!isReOpen) {
         await db.delete('taxonomy',
@@ -83,7 +110,8 @@ class Offline {
           ]);
     }
     await db.delete('taxonomy',
-        where: 'current = 0'
+        where: 'id NOT IN (${List.filled(taxonomyIds.length, '?').join(',')})',
+        whereArgs: taxonomyIds
     );
     var nodeResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/node-feed' + urlParam),
@@ -93,12 +121,11 @@ class Offline {
       return;
     }
     final nodeResponseJson = jsonDecode(nodeResponse.body) as List<dynamic>;
-    await db.execute("UPDATE node SET current = 0");
     for (var i = 0; i < nodeResponseJson.length; i++) {
       if (!isReOpen) {
-        await db.delete('notes',
-            where: 'id = ?',
-            whereArgs: [nodeResponseJson[i]['id']]
+        await db.delete('node',
+            where: 'id = ? AND langcode = ?',
+            whereArgs: [nodeResponseJson[i]['id'], nodeResponseJson[i]['langcode']]
         );
       }
       await db.execute(
@@ -115,7 +142,8 @@ class Offline {
           ]);
     }
     await db.delete('node',
-        where: 'current = 0'
+        where: 'id NOT IN (${List.filled(nodeIds.length, '?').join(',')})',
+        whereArgs: nodeIds
     );
     var nodeTaxonomyResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/node-taxonomy-feed' + urlParam),
@@ -124,28 +152,34 @@ class Offline {
     if (nodeTaxonomyResponse.statusCode != 200) {
       return;
     }
-    await db.execute("UPDATE taxonomy_node SET current = 0");
+    List<int> nodeIdsProcessed = [];
     final nodeTaxonomyResponseJson = jsonDecode(nodeTaxonomyResponse.body) as List<dynamic>;
     for (var i = 0; i < nodeTaxonomyResponseJson.length; i++) {
-      if (!isReOpen) {
+      if (!isReOpen && !nodeIdsProcessed.contains(int.parse(nodeTaxonomyResponseJson[i]['nid']))) {
         await db.delete('taxonomy_node',
-            where: 'id = ?',
-            whereArgs: [i]
+            where: 'node_id = ?',
+            whereArgs: [nodeTaxonomyResponseJson[i]['nid']]
         );
+        nodeIdsProcessed.add(int.parse(nodeTaxonomyResponseJson[i]['nid']));
       }
       if (nodeTaxonomyResponseJson[i]['taxonomy_term_id'] != "null") {
         await db.execute(
-          'INSERT INTO taxonomy_node (id, node_id, taxonomy_id, langcode, current) VALUES (?, ?, ?, ?, 1)',
+          'INSERT INTO taxonomy_node (node_id, taxonomy_id, langcode) VALUES (?, ?, ?)',
           [
-            i,
             nodeTaxonomyResponseJson[i]['nid'],
             nodeTaxonomyResponseJson[i]['taxonomy_term_id'],
             nodeTaxonomyResponseJson[i]['langcode']
           ]);
       }
     }
+    // Cleanup the taxonomy node table of table that cannot be right.
     await db.delete('taxonomy_node',
-        where: 'current = 0'
+        where: 'taxonomy_id NOT IN (${List.filled(taxonomyIds.length, '?').join(',')})',
+        whereArgs: taxonomyIds
+    );
+    await db.delete('taxonomy_node',
+        where: 'node_id NOT IN (${List.filled(nodeIds.length, '?').join(',')})',
+        whereArgs: nodeIds
     );
     var decisionResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/decison-feed' + urlParam),
@@ -154,19 +188,19 @@ class Offline {
     if (decisionResponse.statusCode != 200) {
       return;
     }
-    await db.execute("UPDATE activity_decision SET current = 0");
     final decisionResponseJson = jsonDecode(decisionResponse.body) as List<dynamic>;
+    List<int> decisionNodeIdsProcessed = [];
     for (var i = 0; i < decisionResponseJson.length; i++) {
-      if (!isReOpen) {
+      if (!isReOpen && !decisionNodeIdsProcessed.contains(int.parse(decisionResponseJson[i]['nid']))) {
         await db.delete('activity_decision',
-            where: 'id = ?',
-            whereArgs: [i]
+            where: 'node_id = ?',
+            whereArgs: [decisionResponseJson[i]['nid']]
         );
+        decisionNodeIdsProcessed.add(int.parse(decisionResponseJson[i]['nid']));
       }
       await db.execute(
-          'INSERT INTO activity_decision (id, node_id, decision_labels, decision_targets, decision_taxonomy_ids, decision_body, langcode, last_updated, current) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
+          'INSERT INTO activity_decision (node_id, decision_labels, decision_targets, decision_taxonomy_ids, decision_body, langcode, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [
-            i,
             decisionResponseJson[i]['nid'],
             decisionResponseJson[i]['decision_label'],
             decisionResponseJson[i]['decision_target'],
@@ -177,13 +211,14 @@ class Offline {
           ]);
     }
     await db.delete('activity_decision',
-        where: 'current = 0'
+        where: 'node_id NOT IN (${List.filled(nodeIds.length, '?').join(',')})',
+        whereArgs: nodeIds
     );
     var notesResponse = await http.get(
       Uri.parse('https://' +  Env.DRUPAL_URL + '/bmfeeds/notes-feed' + urlParam),
       headers: {HttpHeaders.authorizationHeader: token},
     );
-    if (decisionResponse.statusCode != 200) {
+    if (notesResponse.statusCode != 200) {
       return;
     }
     final notesResponseJson = jsonDecode(notesResponse.body) as List<dynamic>;
@@ -197,7 +232,7 @@ class Offline {
         }
       }
       await db.execute(
-          'INSERT INTO notes (upstream_id, node_id, note, selected_text, start_position, end_position, is_synced, current) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO notes (upstream_id, node_id, note, selected_text, start_position, end_position, is_synced) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [
             notesResponseJson[i]['id'],
             notesResponseJson[i]['node_id'],
@@ -206,11 +241,13 @@ class Offline {
             notesResponseJson[i]['note_start'],
             notesResponseJson[i]['note_end'],
             1,
-            1
           ]);
       await db.delete('notes',
-          where: 'is_synced = 1 AND current = 0'
+          where: 'upstream_id NOT IN (${List.filled(notesIds.length, '?').join(',')})',
+          whereArgs: notesIds
       );
+      await setForceRefreshData(false);
+      await setLastSyncDate(DateTime.now().millisecondsSinceEpoch);
     }
   }
 
@@ -234,12 +271,21 @@ class Offline {
       whereClause = 'id = ? AND vid = ?';
       WhereArguments = [termId, 'allen_cognitive_levels'];
     }
-    var terms = await db?.query('taxonomy',
-        columns: ['id', 'parent_id', 'vid', 'weight', 'colour', 'title'],
-        where: whereClause,
-        whereArgs: WhereArguments,
-        orderBy: 'weight DESC'
-    );
+    List<Map<String,Object?>>? terms = [];
+    if (whereClause.isNotEmpty) {
+      terms = await db?.query('taxonomy',
+          columns: ['id', 'parent_id', 'vid', 'weight', 'colour', 'title'],
+          where: whereClause,
+          whereArgs: WhereArguments,
+          orderBy: 'weight DESC'
+      );
+    }
+    else {
+      terms = await db?.query('taxonomy',
+          columns: ['id', 'parent_id', 'vid', 'weight', 'colour', 'title'],
+          orderBy: 'weight DESC'
+      );
+    }
     return terms ?? [];
   }
 
@@ -258,6 +304,9 @@ class Offline {
   }
 
   Future<List<Map<String, dynamic>>> getNode(String? nodeTitle, String LanguageCode, String node_type, Database? db) async {
+    if (db == null) {
+      throw new Exception('No Database avalisable');
+    }
     String whereClause = '';
     List whereArguments = [];
     if ((nodeTitle ?? '').isNotEmpty) {
@@ -273,6 +322,11 @@ class Offline {
       where: whereClause,
       whereArgs: whereArguments,
     );
+    print(db);
+    var ids = await db.rawQuery("SELECT title, langcode FROM node WHERE node_type = 'allen_app_information'");
+    print(whereClause);
+    print(whereArguments);
+    print(ids);
     return nodes ?? [];
   }
 
@@ -343,10 +397,14 @@ class Offline {
   }
 
   Future getNotesByNode(int node_id, Database? db) async {
-    var items = await db?.query('notes',
+    if (db == null) {
+      return Error();
+    }
+    var items = await db.query('notes',
       where: 'node_id = ?',
       whereArgs: [node_id],
     );
+    print(items);
     return items ?? [];
   }
 

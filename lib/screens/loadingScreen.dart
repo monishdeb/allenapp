@@ -19,18 +19,16 @@ class loadingScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-           height: 600,
-           child:Container(
-              color: Colors.white,
-              child: Center(child: CircularProgressIndicator()),
-            )
+          Expanded(
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
           ),
           AllenAppFooter(
             locale: locale,
             isEnglishUS: isEnglishUS,
           ),
-        ]
+        ],
       )
     );
   }

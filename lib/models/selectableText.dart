@@ -1,3 +1,4 @@
+import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:flutter/foundation.dart';
@@ -75,44 +76,19 @@ class _SelectableAllenTextState extends State<SelectableAllenText> {
 
   Future<void> saveHighlightedNote(HighlightedNote highlightedNote) async {
     List<Map<String, dynamic>> newNotes = List.from(notes);
-    if (isAppOffline) {
-      await Offline().saveNote(int.parse(highlightedNote.nodeId), highlightedNote.note, highlightedNote.selectedText, highlightedNote.start, highlightedNote.end, db).then((result) {
-        Map<String, dynamic> newNote = {
-          'id': result,
-          'start_position': highlightedNote.start,
-          'end_position': highlightedNote.end,
-          'note': highlightedNote.note,
-          'selected_text': highlightedNote.selectedText,
-        };
-        newNotes.add(newNote);
-        setState(() {
-          notes = newNotes;
-        });
+    await Offline().saveNote(int.parse(highlightedNote.nodeId), highlightedNote.note, highlightedNote.selectedText, highlightedNote.start, highlightedNote.end, db).then((result) {
+      Map<String, dynamic> newNote = {
+        'id': result,
+        'start_position': highlightedNote.start,
+        'end_position': highlightedNote.end,
+        'note': highlightedNote.note,
+        'selected_text': highlightedNote.selectedText,
+      };
+      newNotes.add(newNote);
+      setState(() {
+        notes = newNotes;
       });
-    }
-    else {
-      final GraphQLClient graphQLClient = client.value;
-      await graphQLClient.mutate(MutationOptions(document: gql(createHighlight),
-          variables: {
-            'node_id': int.parse(highlightedNote.nodeId),
-            'note': highlightedNote.note,
-            'highlighted_text': highlightedNote.selectedText,
-            'note_start': highlightedNote.start,
-            'note_end': highlightedNote.end
-          })).then((result) {
-        Map<String, dynamic> newNote = {
-          'id': result.data?['createCustomHighlight']['customHighlight']['id'],
-          'noteStartRawField': {'getString': highlightedNote.start.toString()},
-          'noteEndRawField': {'getString': highlightedNote.end.toString()},
-          'label': highlightedNote.note,
-          'highlighted_text': highlightedNote.selectedText,
-        };
-        newNotes.add(newNote);
-        setState(() {
-          notes = newNotes;
-        });
-      });
-    }
+    });
   }
 
   // function that shows popup when user is adding a note to highlighted text
@@ -199,44 +175,20 @@ class _SelectableAllenTextState extends State<SelectableAllenText> {
     if (notes.length > 0) {
       var originalText = text;
       for (var i = 0; i < notes.length; i++) {
-        if (isAppOffline) {
-          if (notes[i]['start_position'] != '' && (notes[i]['start_position'] ?? 1) > 0) {
-            var note_start = notes[i]['start_position'] ?? 1;
-            var note_end = notes[i]['end_position'] ?? 1;
-            if (note_end > originalText.length) {
-              note_end = originalText.length;
-            }
-            if (note_start > originalText.length) {
-              note_start = originalText.length;
-            }
-            var workInProgressText = originalText.substring(start, note_start) +
-              '<span class="icon" id="' + notes[i]['id'].toString() +
-              '"></span><span class="selected">' + originalText.substring(note_start, note_end) +
-              '</span>' + originalText.substring(note_end);
-            originalText = workInProgressText;
+        if (notes[i]['start_position'] != '' && (notes[i]['start_position'] ?? 1) > 0) {
+          var note_start = notes[i]['start_position'] ?? 1;
+          var note_end = notes[i]['end_position'] ?? 1;
+          if (note_end > originalText.length) {
+            note_end = originalText.length;
           }
-        }
-        else {
-          if (notes[i]['noteStartRawField']['getString'] != '' &&
-              int.parse(notes[i]['noteStartRawField']['getString'] ?? '0') > 0) {
-            var note_start = int.parse(notes[i]['noteStartRawField']['getString'] ?? '1');
-            var note_end = int.parse(
-                notes[i]['noteEndRawField']['getString'] ?? '0');
-            if (note_end > originalText.length) {
-              note_end = originalText.length;
-            }
-            if (note_start > originalText.length) {
-              note_start = originalText.length;
-            }
-            var workInProgressText = originalText.substring(start,
-                note_start) +
-                '<span class="icon" id="' + notes[i]['id'] +
-                '"></span><span class="selected">' + originalText.substring(
-                note_start,
-                note_end) +
-                '</span>' + originalText.substring(note_end);
-            originalText = workInProgressText;
+          if (note_start > originalText.length) {
+            note_start = originalText.length;
           }
+          var workInProgressText = originalText.substring(start, note_start) +
+            '<span class="icon" id="' + notes[i]['id'].toString() +
+            '"></span><span class="selected">' + originalText.substring(note_start, note_end) +
+            '</span>' + originalText.substring(note_end);
+          originalText = workInProgressText;
         }
       }
       finalText = originalText;
@@ -266,6 +218,9 @@ class _SelectableAllenTextState extends State<SelectableAllenText> {
             customWidgetBuilder: (element) {
               if (element.classes.contains('icon')) {
                 return InlineCustomWidget(child: SizedBox(height: 20, width: 24, child: IconButton(onPressed: () => {_showNote(context, element.attributes['id'])}, icon: Icon(Icons.info), iconSize: 14)));
+              }
+              if (element.localName == 'img') {
+                return Image(image: CachedNetworkImageProvider(element.attributes['src'] ?? ''));
               }
             },
             textStyle: TextStyle(fontSize: 18),

@@ -10,6 +10,7 @@ import '../services/auth.dart';
 import 'home.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
+import '../services/HtmlParser.dart';
 
 class SingleAppInfoPage extends StatefulWidget {
   final bool isEnglishUS;
@@ -28,33 +29,39 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool isAppOffline = false;
   bool isLoading = true;
-
+  String currentLocale = 'EN';
   @override
   void initState() {
     super.initState();
     isLoading = false;
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
-    if (!isAppOffline) {
-      var database = db;
-      if (database == null || !database.isOpen) {
-        initDatabase(false);
-      }
-      else {
-        Offline().getSourceData(database, false);
-      }
+    initOfflineDatabase();
+  }
+
+  Future<void> initOfflineDatabase() async {
+    setState(() {
+      isLoading = true;
+    });
+    var database = db;
+    if (database == null || !database.isOpen) {
+      database = await initDatabase(false);
+      setState(() {
+        isLoading = false;
+      });
+    }
+    else {
+      Offline().getSourceData(database, false);
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
-  // helper function to parse HTML to text
-  // removes "full_html" from end of string
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-
-    if (parsedText.endsWith(", full_html")) {
-      parsedText = parsedText.substring(0, parsedText.length - 11);
-    }
-
-    return parsedText.trim();
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
   }
 
   void _onChangeOffline(bool? isOffline) async {
@@ -72,15 +79,15 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+      return loadingScreen(isEnglishUS: currentLocale == 'EN', locale: currentLocale);
     }
     return Scaffold(
       backgroundColor: Colors.grey[200],
       key: _scaffoldKey,
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: currentLocale == 'EN',
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
         showGeneralDialog(
@@ -104,8 +111,8 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
-                          isEnglishUS: widget.isEnglishUS,
+                          locale: currentLocale,
+                          isEnglishUS: currentLocale == 'EN',
                           isOffline: isAppOffline,
                         ),
                       ),
@@ -118,14 +125,15 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: currentLocale == 'EN',
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: currentLocale == 'EN',
         isOffline: isAppOffline,
       ),
       body: SingleChildScrollView(
@@ -155,7 +163,7 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
                 child: FutureBuilder(
                   future: Offline().getNode(
                     widget.nodeTitle,
-                    widget.locale,
+                    currentLocale,
                     'allen_app_information',
                     db,
                   ),
@@ -170,7 +178,7 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
                     if (offlineData == null || offlineData.isEmpty) {
                       return Center(child: Text('No data found offline'));
                     }
-                    return HtmlWidget(offlineData[0]['body'], textStyle: TextStyle(fontSize: 18));
+                    return HtmlWidget(HtmlParser().parseHtmlString(offlineData[0]['body']), textStyle: TextStyle(fontSize: 18));
                   }
                 )
               ),
@@ -178,8 +186,8 @@ class _SingleAppInfoPageState extends State<SingleAppInfoPage> {
 
             // Footer now scrolls with content (no whitespace EVER)
             AllenAppFooter(
-              locale: widget.locale,
-              isEnglishUS: widget.isEnglishUS,
+              locale: currentLocale,
+              isEnglishUS: currentLocale == 'EN',
             ),
           ],
         ),

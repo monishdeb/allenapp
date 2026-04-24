@@ -32,6 +32,7 @@ List<Term> modeTerms = [];
 class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   bool isLoading = true;
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   // counters to keep track of index when displaying taxonomy terms
   int count1 = 0;
@@ -43,20 +44,36 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   void initState() {
     super.initState();
     isLoading = true;
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
     fetchParentTerms();
+  }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
+    fetchParentTerms();
+  }
+
+  Future<void> _initOfflineDatabase() async {
+    if (!isAppOffline) {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        database = await initDatabase(false);
+      }
+      else {
+        Offline().getSourceData(database, false);
+      }
+    }
   }
 
   // queries for parent allen cognitive level taxonomy terms
   Future<void> fetchParentTerms() async {
     parentTerms = [];
     var database = db;
-    if (database == null || !database.isOpen) {
-      await initDatabase(false);
-    }
-    else {
-      await Offline().getSourceData(database, false);
-    }
+    await _initOfflineDatabase();
+    database = db;
     final parentResult = await Offline().getRootTaxonomy(database, 'allen_cognitive_levels');
     parentTerms = List<Term>.from((parentResult ?? []).map((item) => Term.fromMap(item, isAppOffline)));
     List<String> parentIds = parentTerms
@@ -169,7 +186,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            TaxonomyDetailScreen(id: term.id.toString(), isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, siblings: siblings ?? {}),
+            TaxonomyDetailScreen(id: term.id.toString(), isEnglishUS: (currentLocale == 'EN'), locale: currentLocale, isOffline: isAppOffline, siblings: siblings ?? {}),
       ),
     );
   }
@@ -177,17 +194,16 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
     if (isLoading) {
-      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+      return loadingScreen(isEnglishUS: (currentLocale == 'EN'), locale: currentLocale);
     }
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
         showGeneralDialog(
@@ -211,8 +227,8 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
-                          isEnglishUS: widget.isEnglishUS,
+                          locale: currentLocale,
+                          isEnglishUS: (currentLocale == 'EN'),
                           isOffline: isAppOffline,
                         ),
                       ),
@@ -225,14 +241,15 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
       ),
       body: SingleChildScrollView(
@@ -255,7 +272,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
               child: Container(
                 color: Colors.white,
                 child: SizedBox(
-                  height: 610,
+                  height: 700,
                   child: Center(
                     child: SizedBox(
                       width: MediaQuery.of(context).size.width * 0.95,
@@ -267,11 +284,14 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                             width: 100,
                             child: Column(
                               children: List.generate(6, (index) {
+                                if (count1 > 5) {
+                                  count1 = 0;
+                                }
                                 if (count1 < parentTerms.length) {
                                   Term term = parentTerms[count1];
                                   count1++;
                                   return Table(
-                                    border: TableBorder.all(),
+                                    border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                     columnWidths: const {
                                       0: FlexColumnWidth(1),
                                     },
@@ -291,7 +311,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                 ),
                                               ),
                                             ),
@@ -310,12 +330,18 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                           Expanded(
                             child: Column(
                               children: List.generate(11, (index) {
+                                if (count2 > 10) {
+                                  count2 = 0;
+                                }
                                 if (index == 10) {
                                   Term term = (count2 < childTerms.length)
                                     ? childTerms[count2++]
                                     : Term(id: '', label: 'N/A', colour: '#FFFFFF');
+                                  if (term.label == '6 L') {
+                                    siblings[term.label[0]] = {term.label : term.id};
+                                  }
                                   return Table(
-                                    border: TableBorder.all(),
+                                    border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                     columnWidths: const {0: FlexColumnWidth()},
                                     children: [
                                       TableRow(
@@ -331,7 +357,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                               child: Text(
                                                 term.label,
                                                 textAlign: TextAlign.center,
-                                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                                               ),
                                             ),
                                           ),
@@ -359,6 +385,9 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                     siblings[term.label[0]]![term.label] = term.id;
                                     siblings.putIfAbsent(currentKey, () => <String, String>{});
                                   } else {
+                                    if (modeTerms.length == count3) {
+                                      count3 = 0;
+                                    }
                                     // Use modeTerms for odd index
                                     term = (count3 < modeTerms.length) ? modeTerms[count3++] : modeTerms.last;
 
@@ -389,7 +418,10 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                         child: Text(
                                           term.label,
                                           textAlign: TextAlign.center,
-                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: (term.label.endsWith('L') || term.label.endsWith('H')) ? 18 : 16,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -397,7 +429,7 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
                                 }
 
                                 return Table(
-                                  border: TableBorder.all(),
+                                  border: TableBorder.all(width: 0.5, color: Colors.grey.shade300),
                                   columnWidths: columnCount == 2
                                     ? const {
                                       0: FlexColumnWidth(3),
@@ -424,8 +456,8 @@ class _TaxonomyHierarchyScreenState extends State<TaxonomyHierarchyScreen> {
             ),
             // Footer now scrolls with content (no whitespace EVER)
             AllenAppFooter(
-              locale: widget.locale,
-              isEnglishUS: widget.isEnglishUS,
+              locale: currentLocale,
+              isEnglishUS: (currentLocale == 'EN'),
             ),
           ]
         )

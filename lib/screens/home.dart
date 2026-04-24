@@ -29,10 +29,12 @@ class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool isAppOffline = false;
   bool isLoading = true;
+  String currentLocale = 'EN';
 
   @override
   void initState() {
     isAppOffline = widget.isOffline;
+    currentLocale = widget.locale;
     super.initState();
     isLoading = false;
   }
@@ -47,9 +49,15 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+    if (isLoading) return loadingScreen(isEnglishUS: (currentLocale == 'EN'), locale: currentLocale);
 
     return PopScope(
       canPop: false,
@@ -61,7 +69,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.grey[200],
         appBar: CustomAppBar(
           scaffoldKey: _scaffoldKey,
-          locale: widget.locale,
+          locale: currentLocale,
           isEnglishUS: widget.isEnglishUS,
           isOffline: isAppOffline,
           onMoreOptionsPressed: () {
@@ -86,8 +94,8 @@ class _HomePageState extends State<HomePage> {
                         child: Material(
                           borderRadius: BorderRadius.zero,
                           child: MoreOptionsDrawer(
-                            locale: widget.locale,
-                            isEnglishUS: widget.isEnglishUS,
+                            locale: currentLocale,
+                            isEnglishUS: (currentLocale == 'EN'),
                             isOffline: isAppOffline,
                           ),
                         ),
@@ -100,14 +108,15 @@ class _HomePageState extends State<HomePage> {
           },
         ),
         endDrawer: SettingsDrawer(
-          locale: widget.locale,
-          isEnglishUS: widget.isEnglishUS,
+          locale: currentLocale,
+          isEnglishUS: (currentLocale == 'EN'),
           isOffline: isAppOffline,
           onOfflineChange: _onChangeOffline,
+          onLocaleChange: _onLocaleChange,
         ),
         drawer: LeftNavDrawer(
-          locale: widget.locale,
-          isEnglishUS: widget.isEnglishUS,
+          locale: currentLocale,
+          isEnglishUS: (currentLocale == 'EN'),
           isOffline: isAppOffline,
           currentScreen: 'home',
         ),
@@ -155,8 +164,8 @@ class _HomePageState extends State<HomePage> {
                                       MaterialPageRoute(
                                         builder: (context) =>
                                             TaxonomyHierarchyScreen(
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           isOffline: isAppOffline,
                                         ),
                                       ),
@@ -167,8 +176,8 @@ class _HomePageState extends State<HomePage> {
                                       MaterialPageRoute(
                                         builder: (context) =>
                                             ConceptualFrameworksScreen(
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           isOffline: isAppOffline,
                                         ),
                                       ),
@@ -178,8 +187,8 @@ class _HomePageState extends State<HomePage> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => AclsTermsScreen(
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           isOffline: isAppOffline,
                                         ),
                                       ),
@@ -189,8 +198,8 @@ class _HomePageState extends State<HomePage> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => SingleAppInfoPage(
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           nodeTitle: "Preface",
                                           isOffline: isAppOffline,
                                         ),
@@ -201,8 +210,8 @@ class _HomePageState extends State<HomePage> {
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => SingleAppInfoPage(
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           nodeTitle: "Glossary of Terms",
                                           isOffline: isAppOffline,
                                         ),
@@ -215,9 +224,9 @@ class _HomePageState extends State<HomePage> {
                                   padding: const EdgeInsets.all(8.0),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    border: Border.all(
-                                      width: 0.2,
-                                      color: Colors.grey
+                                    border: Border(
+                                      top: BorderSide(width: 0.2, color: Colors.grey),
+                                      bottom: BorderSide(width: 0.2, color: Colors.grey),
                                     )
                                   ),
                                   child: Row(
@@ -251,8 +260,8 @@ class _HomePageState extends State<HomePage> {
                   )),
                 ),
               AllenAppFooter(
-                locale: widget.locale,
-                isEnglishUS: widget.isEnglishUS,
+                locale: currentLocale,
+                isEnglishUS: (currentLocale == 'EN'),
               ),
             ],
           ),

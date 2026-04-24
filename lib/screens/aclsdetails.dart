@@ -1,5 +1,4 @@
 import 'package:allenapp/services/Offline.dart';
-
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/query.dart';
@@ -7,7 +6,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../models/footer.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
-import '../Env.dart';
+import '../services/HtmlParser.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
 
@@ -31,9 +30,11 @@ class AclsDetailsScreen extends StatefulWidget {
 
 class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   @override
   void initState() {
     isAppOffline = widget.isOffline;
+    currentLocale = widget.locale;
     super.initState();
     if (!isAppOffline) {
       var database = db;
@@ -46,23 +47,18 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
     }
   }
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  // helper function to parse HTML to text
-  // removes "full_html" from end of string
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-
-    if (parsedText.endsWith(", full_html")) {
-      parsedText = parsedText.substring(0, parsedText.length - 11);
-    }
-    parsedText.replaceAll('"/sites', '"' + Env.DRUPAL_URL + '/sites');
-    return parsedText.trim();
-  }
 
   void _onChangeOffline(bool? isOffline) async {
     await setOfflineStatus(isOffline ?? false, true);
     await setOfflineDate(DateTime.now().millisecondsSinceEpoch);
     setState(() {
       isAppOffline = isOffline ?? false;
+    });
+  }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
     });
   }
 
@@ -73,8 +69,8 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
       backgroundColor: Colors.grey[200],
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
         showGeneralDialog(
@@ -98,8 +94,8 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
-                          isEnglishUS: widget.isEnglishUS,
+                          locale: currentLocale,
+                          isEnglishUS: (currentLocale == 'EN'),
                           isOffline: isAppOffline,
                         ),
                       ),
@@ -112,14 +108,15 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
       ),
       body: SingleChildScrollView(
@@ -156,13 +153,13 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
                       physics: ScrollPhysics(),
                       padding: EdgeInsets.all(16),
                       children: [
-                        SelectableAllenText(text: parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
+                        SelectableAllenText(text: HtmlParser().parseHtmlString(widget.body), notes: [], currentNodeId: widget.nodeId, isOffline: isAppOffline),
                         SizedBox(height: 32),
                         if (childTerms.isNotEmpty) SizedBox(height: 10),
                           ...childTerms.map<Widget>((term) {
                             final childId = term['id'].toString();
                             return FutureBuilder(
-                               future: Offline().getNodesByTaxonomyId(childId, widget.locale, 'acls_6', db),
+                               future: Offline().getNodesByTaxonomyId(childId, currentLocale, 'acls_6', db),
                                builder: (context, snapshot) {
                                  if (snapshot.connectionState ==
                                    ConnectionState.waiting) {
@@ -191,8 +188,8 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
                                              termId: childId,
                                              label: childLabel,
                                              body: childBody,
-                                             locale: widget.locale,
-                                             isEnglishUS: widget.isEnglishUS,
+                                             locale: currentLocale,
+                                             isEnglishUS: (currentLocale == 'EN'),
                                              isOffline: isAppOffline,
                                            ),
                                          ),
@@ -226,8 +223,8 @@ class _AclsDetailsScreenState extends State<AclsDetailsScreen> {
         ),
         // Footer now scrolls with content (no whitespace EVER)
         AllenAppFooter(
-          locale: widget.locale,
-          isEnglishUS: widget.isEnglishUS,
+          locale: currentLocale,
+          isEnglishUS: (currentLocale == 'EN'),
         ),
       ])),
     );

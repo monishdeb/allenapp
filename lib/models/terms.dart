@@ -12,6 +12,11 @@ class Term {
 
   Term({required this.id, required this.label, required this.colour});
 
+  @override
+  String toString() {
+    return '{id: ' + this.id + ', label:' + this.label + ',colour:' + this.colour + '}';
+  }
+
   // constructor to map GraphQL response object to Term object
   factory Term.fromMap(Map<String, dynamic> map, bool isOffline) {
     String termColour;
@@ -26,5 +31,6 @@ class Term {
       label: map['title'] as String,
       colour: termColour,
     );
+
   }
 }

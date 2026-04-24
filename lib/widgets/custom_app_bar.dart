@@ -80,6 +80,7 @@ class SettingsDrawer extends StatefulWidget {
   final bool isOffline;
   final void Function(bool?) onOfflineChange;
   final void Function()? onLogout;
+  final void Function(String) onLocaleChange;
 
   const SettingsDrawer({
     Key? key,
@@ -87,6 +88,7 @@ class SettingsDrawer extends StatefulWidget {
     required this.locale,
     required this.isOffline,
     required this.onOfflineChange,
+    required this.onLocaleChange,
     this.onLogout,
   }) : super(key: key);
 
@@ -185,7 +187,10 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 setState(() {
                   _isEnglishUS = value ?? true;
                 });
-                storeLangaugeCode('EN_US');
+                if (value == true) {
+                  storeLangaugeCode('EN');
+                  widget.onLocaleChange('EN');
+                }
               },
             ),
             RadioListTile<bool>(
@@ -207,9 +212,12 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
               groupValue: _isEnglishUS,
               onChanged: (value) {
                 setState(() {
-                  _isEnglishUS = value == false;
+                  _isEnglishUS = value ?? false;
                 });
-                storeLangaugeCode('EN');
+                if (value == false) {
+                  widget.onLocaleChange('EN_GB');
+                  storeLangaugeCode('EN_GB');
+                }
               },
             ),
             const Divider(height: 32),

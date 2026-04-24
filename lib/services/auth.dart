@@ -61,7 +61,7 @@ Future<String?> getLangaugeCode() async {
   return await storage.read(key: 'language');
 }
 
-Future<bool?> getOfflineStatus() async {
+Future<bool> getOfflineStatus() async {
   return bool.parse(await storage.read(key: 'isOffline') ?? 'false');
 }
 
@@ -72,6 +72,14 @@ Future<int> getLastPinCodeRequest() async {
 
 Future<void> setLastPinCodeRequest() async {
   await storage.write(key: 'last_pin_request', value: DateTime.now().millisecondsSinceEpoch.toString());
+}
+
+Future<bool> getForceRefreshData() async {
+  return bool.parse(await storage.read(key: 'forceRefresh') ?? 'true');
+}
+
+Future<void> setForceRefreshData(bool forceRefresh) async {
+  await storage.write(key: 'forceRefresh', value: forceRefresh.toString());
 }
 
 Future<void> setOfflineStatus(bool offlineStatus, bool rebuildDatabase) async {

@@ -7,6 +7,7 @@ import '../services/query.dart';
 import 'activitydetail.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
+import '../services/HtmlParser.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
 
@@ -37,27 +38,25 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> activities = [];
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   final GlobalKey<ScaffoldState> _scaffoldState = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     super.initState();
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
   }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     fetchActivities();
-  }
-
-  // remove "full_html" from end of string
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-
-    if (parsedText.endsWith(", full_html")) {
-      parsedText = parsedText.substring(0, parsedText.length - 11);
-    }
-
-    return parsedText.trim();
   }
 
   // fetches all the activities under the parent activity that was chosen
@@ -72,7 +71,7 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
         await Offline().getSourceData(database, false);
       }
     }
-    items = await Offline().getActivities(widget.locale, db, null);
+    items = await Offline().getActivities(currentLocale, db, null);
 
     List<Map<String, dynamic>> filteredItems = [];
 
@@ -107,11 +106,12 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.grey[200],
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
         showGeneralDialog(
@@ -135,8 +135,8 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
-                          isEnglishUS: widget.isEnglishUS,
+                          locale: currentLocale,
+                          isEnglishUS: (currentLocale == 'EN'),
                           isOffline: isAppOffline,
                         ),
                       ),
@@ -149,14 +149,15 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
       ),
       body: SingleChildScrollView(
@@ -184,7 +185,7 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
                       padding: const EdgeInsets.all(16.0),
                       child: Container(
                         color: Colors.white,
-                        child: SelectableAllenText(text: parseHtmlString(widget.body), notes: [], isOffline: isAppOffline),
+                        child: SelectableAllenText(text: HtmlParser().parseHtmlString(widget.body), notes: [], isOffline: isAppOffline),
                       )
                   ),
                   Padding(
@@ -236,8 +237,8 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
                                       decisionLabel: decisionLabel,
                                       decisionTarget: decisionTarget,
                                       decisionTaxonomy: decisionTaxonomy,
-                                      isEnglishUS: widget.isEnglishUS,
-                                      locale: widget.locale,
+                                      isEnglishUS: (currentLocale == 'EN'),
+                                      locale: currentLocale,
                                       isOffline: isAppOffline,
                                     ),
                                   ),
@@ -251,7 +252,7 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          parseHtmlString(label),
+                                          HtmlParser().parseHtmlString(label),
                                           style: TextStyle(
                                               fontSize: 18,
                                               ),
@@ -278,8 +279,8 @@ class _ActivityStartScreenState extends State<ActivityStartScreen> {
               )
             ),
             AllenAppFooter(
-              locale: widget.locale,
-              isEnglishUS: widget.isEnglishUS,
+              locale: currentLocale,
+              isEnglishUS: (currentLocale == 'EN'),
             ),
           ]
         ),

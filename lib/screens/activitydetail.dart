@@ -11,9 +11,9 @@ import 'acls6.dart';
 import '../models/selectableText.dart';
 import '../services/auth.dart';
 import '../services/Notes.dart';
-import '../Env.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
+import '../services/HtmlParser.dart';
 
 // screen that renders once the user starts one of the activities
 class ActivityDetailsScreen extends StatefulWidget {
@@ -50,16 +50,26 @@ class ActivityDetailsScreen extends StatefulWidget {
 
 
 class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool isAppOffline = false;
   bool isLoading = true;
   List<Map<String, dynamic>> userNotes = [];
+  String currentLocale = 'EN';
   @override
   void initState() {
     super.initState();
     isLoading = true;
     isAppOffline = widget.isOffline;
+    currentLocale = widget.locale;
     fetchNotes(widget.nodeId, userNotes);
   }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
+  }
+
   Future<void> fetchNotes(currentNodeId, userNotes)  async {
     if (!isAppOffline) {
       var database = db;
@@ -74,16 +84,6 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
     setState(() {
       isLoading = false;
     });
-  }
-
-  // function to remove "full_html" from end of queried content
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-    if (parsedText.endsWith(", full_html")) {
-      parsedText = parsedText.substring(0, parsedText.length - 11);
-    }
-    parsedText.replaceAll('"/sites', '"' + Env.DRUPAL_URL + '/sites');
-    return parsedText.trim();
   }
 
   void _onChangeOffline(bool? isOffline) async {
@@ -102,9 +102,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
     if (isLoading) {
-      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+      return loadingScreen(isEnglishUS: (currentLocale == 'EN'), locale: currentLocale);
     }
     // separates queried decision labels into an array of labels separated by commas
     List<String> decisionLabels = [];
@@ -183,8 +182,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               builder: (context) => TaxonomyDetailScreen(
                 // navigates user to taxonomy screen when decision taxonomy is pressed
                 id: taxonomyId,
-                isEnglishUS: widget.isEnglishUS,
-                locale: widget.locale,
+                isEnglishUS: (currentLocale == 'EN'),
+                locale: currentLocale,
                 isOffline: isAppOffline,
               ),
             ),
@@ -209,7 +208,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       if (targetIndex < decisionTargets.length) {
         String targetId = decisionTargets[targetIndex];
         buttonActions[i] = () {
-          fetchTargetData(context, targetId, widget.locale, isAppOffline);
+          fetchTargetData(context, targetId, currentLocale, isAppOffline);
         };
         targetIndex++;
       } else {
@@ -219,8 +218,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
               context,
               MaterialPageRoute(
                 builder: (context) =>  AclsTermsScreen(
-                  isEnglishUS: widget.isEnglishUS,
-                  locale: widget.locale,
+                  isEnglishUS: (currentLocale == 'EN'),
+                  locale: currentLocale,
                   isOffline: isAppOffline,
                 ),
               ),
@@ -241,8 +240,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
       backgroundColor: Colors.grey[200],
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
         showGeneralDialog(
@@ -266,8 +265,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
-                          isEnglishUS: widget.isEnglishUS,
+                          locale: currentLocale,
+                          isEnglishUS: (currentLocale == 'EN'),
                           isOffline: isAppOffline,
                         ),
                       ),
@@ -280,14 +279,15 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
-        isEnglishUS: widget.isEnglishUS,
+        locale: currentLocale,
+        isEnglishUS: (currentLocale == 'EN'),
         isOffline: isAppOffline,
       ),
       body: SingleChildScrollView(
@@ -312,7 +312,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                  crossAxisAlignment: CrossAxisAlignment.start,
                  children: [
                     SizedBox(height: 8),
-                    SelectableAllenText(text: parseHtmlString(widget.body), notes: userNotes, currentNodeId: widget.nodeId, isOffline: isAppOffline),
+                    SelectableAllenText(text: HtmlParser().parseHtmlString(widget.body), notes: userNotes, currentNodeId: widget.nodeId, isOffline: isAppOffline),
                     SizedBox(height: 16),
                     for (int i = 0; i < decisionLabels.length; i++)
                       Padding(
@@ -330,7 +330,7 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                                     child: Padding(
                                       padding: const EdgeInsets.only(right: 8.0),
                                       child: SelectableAllenText(
-                                        text: parseHtmlString(decisionBodies[i]), currentNodeId: widget.nodeId, notes: userNotes, isOffline: isAppOffline,
+                                        text: HtmlParser().parseHtmlString(decisionBodies[i]), currentNodeId: widget.nodeId, notes: userNotes, isOffline: isAppOffline,
                                       ),
                                     ),
                                   ),
@@ -358,8 +358,8 @@ class _ActivityDetailsScreenState extends State<ActivityDetailsScreen> {
                 )
               ),
               AllenAppFooter(
-                locale: widget.locale,
-                isEnglishUS: widget.isEnglishUS,
+                locale: currentLocale,
+                isEnglishUS: (currentLocale == 'EN'),
               ),
             ]
           )

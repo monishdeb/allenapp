@@ -30,31 +30,44 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
   List<Map<String, dynamic>> activities = [];
   bool isLoading = true;
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   @override
   void initState() {
     super.initState();
     isAppOffline = widget.isOffline;
+    currentLocale = widget.locale;
     fetchActivities();
+  }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
+    fetchActivities();
+  }
+
+  Future<void> _initOfflineDatabase() async {
+    if (!isAppOffline) {
+      var database = db;
+      if (database == null || !database.isOpen) {
+        database = await initDatabase(false);
+      }
+      else {
+        Offline().getSourceData(database, false);
+      }
+    }
   }
 
   // function fetches all content from Drupal with type ACLS-6 Activities and filters them
   // only stores main activities
   Future<void> fetchActivities() async {
-    if (!isAppOffline) {
-      var database = db;
-      if (database == null || !database.isOpen) {
-        await initDatabase(false);
-      }
-      else {
-        await Offline().getSourceData(database, false);
-      }
-    }
+    await _initOfflineDatabase();
     List items = [];
     setState(() {
       activities = [];
     });
-    items = await Offline().getActivities(widget.locale, db, null);
+    items = await Offline().getActivities(currentLocale, db, null);
     List<Map<String, dynamic>> filteredItems = [];
     // only keeps the items with activity ID in the form Activity Name 1
     for (var item in items) {
@@ -84,14 +97,14 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: currentLocale);
     }
     final client = GraphQLProvider.of(context).value;
     return Scaffold(
       key: _scaffoldKey,
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
@@ -116,7 +129,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
+                          locale: currentLocale,
                           isEnglishUS: widget.isEnglishUS,
                           isOffline: isAppOffline,
                         ),
@@ -130,19 +143,20 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         currentScreen: 'acls_6',
       ),
       body: FooterView(
-        footer: AllenAppFooter(locale: widget.locale, isEnglishUS: widget.isEnglishUS),
+        footer: AllenAppFooter(locale: currentLocale, isEnglishUS: widget.isEnglishUS),
         children: [
           Container(
             color: Colors.grey[800],
@@ -175,7 +189,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                     final termId = term['id'].toString();
                     return FutureBuilder(
                       future: Offline().getNodesByTaxonomyId(
-                        termId.toString(), widget.locale, 'acls_6', db),
+                        termId.toString(), currentLocale, 'acls_6', db),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                           ConnectionState.waiting) {
@@ -235,7 +249,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                                           termId: termId,
                                           label: label,
                                           body: body,
-                                          locale: widget.locale,
+                                          locale: currentLocale,
                                           isEnglishUS: widget.isEnglishUS,
                                           isOffline: isAppOffline,
                                         ),
@@ -304,7 +318,7 @@ class _AclsTermsScreenState extends State<AclsTermsScreen> {
                               body: body,
                               activityId: activityId,
                               isEnglishUS: widget.isEnglishUS,
-                              locale: widget.locale,
+                              locale: currentLocale,
                               isOffline: isAppOffline,
                             ),
                           ),

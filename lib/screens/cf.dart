@@ -10,6 +10,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../services/auth.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
+import '../services/HtmlParser.dart';
 
 // screen that renders when the user selected Conceptual Frameworks from main menu page
 class ConceptualFrameworksScreen extends StatefulWidget {
@@ -28,10 +29,12 @@ class ConceptualFrameworksScreen extends StatefulWidget {
 class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool isAppOffline = false;
+  String currentLocale = 'EN';
 
   @override
   void initState() {
     super.initState();
+    currentLocale = currentLocale;
     isAppOffline = widget.isOffline;
     if (!isAppOffline) {
       var database = db;
@@ -42,6 +45,12 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
         Offline().getSourceData(database, false);
       }
     }
+  }
+
+  void _onLocaleChange(String newLocale) {
+    setState(() {
+      currentLocale = newLocale;
+    });
   }
 
   void _onChangeOffline(bool? isOffline) async {
@@ -59,7 +68,7 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
       backgroundColor: Colors.grey[200],
       appBar: CustomAppBar(
         scaffoldKey: _scaffoldKey,
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onMoreOptionsPressed: () {
@@ -84,7 +93,7 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
                       child: Material(
                         borderRadius: BorderRadius.zero,
                         child: MoreOptionsDrawer(
-                          locale: widget.locale,
+                          locale: currentLocale,
                           isEnglishUS: widget.isEnglishUS,
                           isOffline: isAppOffline,
                         ),
@@ -98,13 +107,14 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
         },
       ),
       endDrawer: SettingsDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         onOfflineChange: _onChangeOffline,
+        onLocaleChange: _onLocaleChange,
       ),
       drawer: LeftNavDrawer(
-        locale: widget.locale,
+        locale: currentLocale,
         isEnglishUS: widget.isEnglishUS,
         isOffline: isAppOffline,
         currentScreen: 'conceptual_framework',
@@ -161,7 +171,7 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
                           termId: term["id"].toString(),
                           fallbackLabel: title,
                           isEnglishUS: widget.isEnglishUS,
-                          locale: widget.locale,
+                          locale: currentLocale,
                           isAutoExpand: true,
                           isOffline: isAppOffline,
                         ),
@@ -173,7 +183,7 @@ class _ConceptualFrameworkScreenState extends State<ConceptualFrameworksScreen> 
             )
           ),
           AllenAppFooter(
-            locale: widget.locale,
+            locale: currentLocale,
             isEnglishUS: widget.isEnglishUS,
           ),
         ],
@@ -212,10 +222,12 @@ class _TermAccordionState extends State<TermAccordion> {
   bool _isInitialized = false;
   TableRow mainWidget = TableRow();
   bool isAppOffline = false;
+  String currentLocale = 'EN';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
     if (!_isInitialized) {
       _isInitialized = true;
@@ -235,7 +247,7 @@ class _TermAccordionState extends State<TermAccordion> {
   void fetchContentAndChildren() async {
     List foundItems = [];
     List childItems = [];
-    foundItems = await Offline().getNodesByTaxonomyId(widget.termId, widget.locale, 'conceptual_framework', db);
+    foundItems = await Offline().getNodesByTaxonomyId(widget.termId, currentLocale, 'conceptual_framework', db);
     childItems = await Offline().getCFTerms(db, widget.termId);
     setState(() {
       List items = foundItems;
@@ -245,18 +257,9 @@ class _TermAccordionState extends State<TermAccordion> {
     await fetchNotes(termContent?['id'].toString() ?? '0');
   }
 
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-    if (htmlString.endsWith(", full_html")) {
-      parsedText = htmlString.substring(0, htmlString.length - 11);
-    }
-
-    return parsedText.trim();
-  }
-
   @override
   Widget build(BuildContext context) {
-    var widgetContent = parseHtmlString(termContent?['body'] ?? '');
+    var widgetContent = HtmlParser().parseHtmlString(termContent?['body'] ?? '');
     var termTitle = (termContent?['label'] ?? termContent?['title']);
     mainWidget = TableRow(
         children: [
@@ -292,7 +295,7 @@ class _TermAccordionState extends State<TermAccordion> {
                       termId: child["id"].toString(),
                       fallbackLabel: label,
                       isEnglishUS: widget.isEnglishUS,
-                      locale: widget.locale,
+                      locale: currentLocale,
                       isOffline: isAppOffline,
                     );
                   }).toList(),
@@ -325,7 +328,7 @@ class _TermAccordionState extends State<TermAccordion> {
                       termId: child["id"].toString(),
                       fallbackLabel: label,
                       isEnglishUS: widget.isEnglishUS,
-                      locale: widget.locale,
+                      locale: currentLocale,
                       isOffline: isAppOffline,
                   );
                 }).toList(),

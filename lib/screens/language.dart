@@ -73,15 +73,7 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
       );
     }
     List<TableRow> LanguageWidgets = [];
-     LanguageWidgets.add(TableRow(children: [
-         Padding(
-           padding: const EdgeInsets.all(8.0),
-           child: Text(
-             'Welcome to the Allen App. Here you will find all of my (Claudia Kay Allen) latest publications on the Allen Cognitive Disability Model.',
-             style: TextStyle(fontSize: 16),
-           ),
-         ),
-     ]));
+
      LanguageWidgets.add(TableRow(children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -102,47 +94,38 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
         var iconcode = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? 'us' : 'gb') : appLanguage['langcode'].toLowerCase());
         var subtext = ((appLanguage['langcode'] ?? '').contains('EN') ? (appLanguage['langcode'] == 'EN' ? ' - imperial units' : ' - metric units') : ' - metric units');
         LanguageWidgets.add(
-            TableRow(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: RadioListTile<String>(
-                      activeColor: Color.fromRGBO(213, 31, 39, 1),
-                      title: Row(
-                        children: <Widget>[
-                            Image.asset('icons/flags/png100px/' + iconcode + '.png', package: 'country_icons', height: 20),
-                            SizedBox(width: 10),
-                            Text(
-                                appLanguage['label'] + subtext,
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 5,
-                                style: TextStyle(color: Colors.black, fontSize: 16.0),
-                            ),
-                          ],
-                      ),
-                      value: appLanguage['langcode'].toString(),
-                      groupValue: _selectedLanguage,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedLanguage = value.toString();
-                        });
-                      },
-                   )
-                  ),
-                ]
-              )
-            );
+          TableRow(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: RadioListTile<String>(
+                    activeColor: Color.fromRGBO(213, 31, 39, 1),
+                    title: Row(
+                      children: <Widget>[
+                          Image.asset('icons/flags/png100px/' + iconcode + '.png', package: 'country_icons', height: 20),
+                          SizedBox(width: 10),
+                          Text(
+                              appLanguage['label'] + subtext,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 5,
+                              style: TextStyle(color: Colors.black, fontSize: 16.0),
+                          ),
+                        ],
+                    ),
+                    value: appLanguage['langcode'].toString(),
+                    groupValue: _selectedLanguage,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedLanguage = value.toString();
+                      });
+                    },
+                 )
+                ),
+              ]
+            )
+          );
       }
     }
-    LanguageWidgets.add(TableRow(children: [
-     Padding(
-       padding: const EdgeInsets.all(8.0),
-       child: Text(
-         'Ensure that you have selected correct language before continuing.',
-         style: TextStyle(fontSize: 16),
-       ),
-     ),
-    ]));
 
     return PopScope(
       canPop: false, // disables all back navigation
@@ -166,11 +149,36 @@ class _LanguageSelectionPageState extends State<LanguageSelectionPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Welcome to the Allen App. Here you will find all of my (Claudia Kay Allen) latest publications on the Allen Cognitive Disability Model.',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                  Container(
                     color: Colors.white,
                     child: Table(
                       columnWidths: const {0: FlexColumnWidth(),},
+                      border: TableBorder(
+                        horizontalInside: BorderSide(color: Colors.grey[300] ?? Colors.grey),
+                      ),
                       children: LanguageWidgets
                     )
+                  ),
+                  Container(
+                    width: double.infinity,
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Ensure that you have selected correct language before continuing.',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
                   ),
                   Container(
                   color: Colors.white,

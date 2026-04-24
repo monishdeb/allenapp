@@ -20,6 +20,7 @@ import 'loadingScreen.dart';
 import 'chartscreen.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/left_drawer.dart';
+import '../services/HtmlParser.dart';
 
 // screen renders when user selects one of the Allen Cognitive Level terms on chart screen
 class TaxonomyDetailScreen extends StatefulWidget {
@@ -57,6 +58,7 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
   String selectedText = '';
   String? currentNodeId;
   bool isAppOffline = false;
+  String currentLocale = 'EN';
   String labelKey = 'title';
   final TextEditingController _controller = TextEditingController();
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -67,17 +69,28 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
     if (kIsWeb) {
       BrowserContextMenu.disableContextMenu();
     }
+    currentLocale = widget.locale;
     isAppOffline = widget.isOffline;
 
     // Use an async initializer so exceptions are easier to catch and we can await sequentially.
     _initAsync();
   }
 
+  void _onLocaleChange(String newLocale) async {
+    setState(() {
+      currentLocale = newLocale;
+    });
+    await fetchTermContent(widget.id);
+    await fetchNavigationTerms(widget.id);
+    await fetchChildTermsAndContent(widget.id);
+    await fetchNotes();
+  }
+
   Future<void> _initAsync() async {
     try {
       var database = db;
       if (database == null || !database.isOpen) {
-        await initDatabase(false);
+        database = await initDatabase(false);
       }
       else {
         await Offline().getSourceData(database, false);
@@ -170,8 +183,6 @@ Future<void> fetchNavigationTerms(String termId) async {
 
     Map<dynamic, dynamic> childTerms = {};
     Map<dynamic, dynamic> childLabels = {};
-    Map<dynamic, dynamic> parentChildTerms = {};
-    Map<dynamic, dynamic> rootParentChildTerms = {};
 
     if (parentTermId != null) {
       var parentTaxonomy = await Offline().getACLTaxonomy(null, parentTermId, db);
@@ -325,13 +336,13 @@ Future<void> fetchNavigationTerms(String termId) async {
   Future<void> fetchTermContent(String termId) async {
     try {
       List<Map<String, dynamic>> items = [];
-      items = await Offline().getNodesByTaxonomyId(termId, widget.locale, 'allen_cognitive_levels', db);
+      items = await Offline().getNodesByTaxonomyId(termId, currentLocale, 'allen_cognitive_levels', db);
       if (!mounted) return;
       setState(() {
         contentNodes = [...items];
         if (contentNodes.isNotEmpty) {
           currentNodeId = contentNodes[0]['id']?.toString();
-          _controller.text = parseHtmlString(contentNodes[0]['body'] ?? '');
+          _controller.text = HtmlParser().parseHtmlString(contentNodes[0]['body'] ?? '');
         }
       });
     } catch (e, st) {
@@ -380,7 +391,6 @@ Future<void> fetchNavigationTerms(String termId) async {
       List childTerms = [];
       List modeItems = [];
       List profileItems = [];
-      final GraphQLClient graphQLClient = client.value;
       childTerms = await Offline().getChildTaxonomy(parentId, 'allen_cognitive_levels', db);
 
       for (var childTerm in childTerms) {
@@ -390,7 +400,7 @@ Future<void> fetchNavigationTerms(String termId) async {
         // if finds umbrella term for mode terms, queries again for the actual modes
         if (childLabel.endsWith('L') || childLabel.endsWith('H')) {
           List<Map<String, dynamic>> contentItems = [];
-          contentItems = await Offline().getNodesByTaxonomyId(childId.toString(), widget.locale, 'allen_cognitive_levels', db);
+          contentItems = await Offline().getNodesByTaxonomyId(childId.toString(), currentLocale, 'allen_cognitive_levels', db);
 
           for (var content in contentItems) {
             profileItems.add({
@@ -411,7 +421,7 @@ Future<void> fetchNavigationTerms(String termId) async {
           modeItems = await Offline().getChildTaxonomy(childId, 'allen_cognitive_levels', db);
           for (var item in modeItems) {
             List<Map<String, dynamic>> contentItems = [];
-            contentItems = await Offline().getNodesByTaxonomyId(item['id'].toString(), widget.locale, 'allen_cognitive_levels', db);
+            contentItems = await Offline().getNodesByTaxonomyId(item['id'].toString(), currentLocale, 'allen_cognitive_levels', db);
             for (var content in contentItems) {
               modeTerms.add({
                 'termId': item['id'].toString(),
@@ -428,7 +438,7 @@ Future<void> fetchNavigationTerms(String termId) async {
           }
         } else {
           List<Map<String, dynamic>> items = [];
-          items = await Offline().getNodesByTaxonomyId(childId, widget.locale, 'allen_cognitive_levels', db);
+          items = await Offline().getNodesByTaxonomyId(childId, currentLocale, 'allen_cognitive_levels', db);
           List<Map<String, dynamic>> allItems = [...items];
 
           for (var item in allItems) {
@@ -473,44 +483,10 @@ Future<void> fetchNavigationTerms(String termId) async {
     return 0.0;
   }
 
-  // removes "full_html" from end of string
-  String parseHtmlString(String htmlString) {
-    String parsedText = htmlString;
-
-    if (parsedText.endsWith(", full_html")) {
-      parsedText = parsedText.substring(0, parsedText.length - 11);
-    }
-    parsedText = parsedText.replaceAll('"/sites', '"' + Env.DRUPAL_URL + '/sites');
-    return parsedText.trim();
-  }
-
-  Future<void> saveHighlightedNote(HighlightedNote highlightedNote) async {
-    try {
-      var database = db;
-      final res = await Offline().saveNote(int.parse(highlightedNote.nodeId), highlightedNote.note, highlightedNote.selectedText, highlightedNote.start,  highlightedNote.end, database);
-      if (res.hasException) {
-        debugPrint('saveHighlightedNote GraphQL error: ${res.exception}');
-        return;
-      }
-      Map<String, dynamic> newNote = {
-        'id': res.data?['createCustomHighlight']?['customHighlight']?['id'],
-        'noteStartRawField': {'getString': highlightedNote.start},
-        'noteEndRawField': {'getString': highlightedNote.end},
-        'label': highlightedNote.note,
-      };
-      if (!mounted) return;
-      setState(() {
-        userNotes.add(newNote);
-      });
-    } catch (e, st) {
-      debugPrint('saveHighlightedNote error: $e\n$st');
-    }
-  }
-
   void handleMenuClick(taxonomyTermId) {
     Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => TaxonomyDetailScreen(id: taxonomyTermId, isEnglishUS: widget.isEnglishUS, locale: widget.locale, isOffline: isAppOffline, siblings: widget.siblings))
+        MaterialPageRoute(builder: (context) => TaxonomyDetailScreen(id: taxonomyTermId, isEnglishUS: (currentLocale == 'EN'), locale: currentLocale, isOffline: isAppOffline, siblings: widget.siblings))
     );
   }
 
@@ -518,8 +494,8 @@ Future<void> fetchNavigationTerms(String termId) async {
   Widget build(BuildContext context) {
     var appbar = CustomAppBar(
       scaffoldKey: _scaffoldKey,
-      locale: widget.locale,
-      isEnglishUS: widget.isEnglishUS,
+      locale: currentLocale,
+      isEnglishUS: (currentLocale == 'EN'),
       isOffline: isAppOffline,
       onMoreOptionsPressed: () {
       showGeneralDialog(
@@ -543,8 +519,8 @@ Future<void> fetchNavigationTerms(String termId) async {
                     child: Material(
                       borderRadius: BorderRadius.zero,
                       child: MoreOptionsDrawer(
-                        locale: widget.locale,
-                        isEnglishUS: widget.isEnglishUS,
+                        locale: currentLocale,
+                        isEnglishUS: (currentLocale == 'EN'),
                         isOffline: isAppOffline,
                       ),
                     ),
@@ -557,18 +533,19 @@ Future<void> fetchNavigationTerms(String termId) async {
       },
     );
     var left_drawer = LeftNavDrawer(
-      locale: widget.locale,
-      isEnglishUS: widget.isEnglishUS,
+      locale: currentLocale,
+      isEnglishUS: (currentLocale == 'EN'),
       isOffline: isAppOffline,
     );
     var settings_drawer = SettingsDrawer(
-      locale: widget.locale,
-      isEnglishUS: widget.isEnglishUS,
+      locale: currentLocale,
+      isEnglishUS: (currentLocale == 'EN'),
       isOffline: isAppOffline,
       onOfflineChange: _onChangeOffline,
+      onLocaleChange: _onLocaleChange,
     );
     if (isLoading) {
-      return loadingScreen(isEnglishUS: widget.isEnglishUS, locale: widget.locale);
+      return loadingScreen(isEnglishUS: (currentLocale == 'EN'), locale: currentLocale);
     }
     if (contentNodes.isEmpty && childTermContent.isEmpty) {
       return Scaffold(
@@ -607,6 +584,7 @@ Future<void> fetchNavigationTerms(String termId) async {
       //)));
       ));
     }
+
     if (parentTerm != null && parentTerm != '0') {
       parentTermPresent = true;
       bool isFirst = rootTerm == null ? true : false;
@@ -627,8 +605,7 @@ Future<void> fetchNavigationTerms(String termId) async {
               )
             ),
           ),
-        //)));
-           ));
+        ));
     }
     if (previousNode != null) {
       leadingActions.add(GestureDetector(onTap: () => handleMenuClick(previousNode),
@@ -662,6 +639,9 @@ Future<void> fetchNavigationTerms(String termId) async {
             return;
           }
           if (childKey.contains('.') && !currentTitle.contains('.')) {
+            return;
+          }
+          if ((!currentTitle.contains('L') && !currentTitle.contains('H')) && (childKey.contains('H') || childKey.contains('L'))) {
             return;
           }
           back = GestureDetector(
@@ -779,12 +759,12 @@ Future<void> fetchNavigationTerms(String termId) async {
       for (var userNote in userNotes) {
         tiles.add(Material(
           child: ListTile(
-            title: Text((isAppOffline ? userNote['note'] : userNote['label'])),
+            title: Text(userNote['note']),
             onTap: () {
-              SelectWordSelectionEvent(globalPosition: (isAppOffline ? userNote['start_position'] : userNote['start']));
+              SelectWordSelectionEvent(globalPosition: (userNote['start_position']));
               FlutterPlatformAlert.showAlert(
                 windowTitle: 'Saved Note',
-                text: (isAppOffline ? userNote['note'] : userNote['label']),
+                text: (userNote['note']),
               );
             }
           )
@@ -930,7 +910,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: SelectableAllenText(
-                              text: parseHtmlString((contentNodes[0]['body'] ?? '')),
+                              text: HtmlParser().parseHtmlString((contentNodes[0]['body'] ?? '')),
                               notes: userNotes,
                               currentNodeId: currentNodeId,
                               isOffline: isAppOffline,
@@ -943,7 +923,6 @@ Future<void> fetchNavigationTerms(String termId) async {
                       // determines if content should open up in new page or in an accordion
                       bool isNavigable = item['contentType'] == 'P';
                       bool isAccordion = item['contentType'] == 'A';
-
                       return TableRow(
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.grey, width: 0.2),
@@ -975,8 +954,8 @@ Future<void> fetchNavigationTerms(String termId) async {
                                           // recursively navigates to new detail screen with new id passed in
                                           TaxonomyDetailScreen(
                                             id: item['termId'],
-                                            isEnglishUS: widget.isEnglishUS,
-                                            locale: widget.locale,
+                                            isEnglishUS: (currentLocale == 'EN'),
+                                            locale: currentLocale,
                                             isOffline: isAppOffline,
                                             siblings: widget.siblings
                                           ),
@@ -999,7 +978,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                                       children: [
                                         Padding(
                                           padding: const EdgeInsets.only(left: 8.0),
-                                            child: HtmlWidget(parseHtmlString(
+                                            child: HtmlWidget(HtmlParser().parseHtmlString(
                                               item['body'] ?? '')),
                                           ),
                                         ],
@@ -1039,8 +1018,8 @@ Future<void> fetchNavigationTerms(String termId) async {
                                         builder: (context) =>
                                             TaxonomyDetailScreen(
                                           id: profile['termId'],
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           isOffline: isAppOffline,
                                           siblings: widget.siblings
                                         ),
@@ -1066,7 +1045,7 @@ Future<void> fetchNavigationTerms(String termId) async {
                               tilePadding: EdgeInsets.only(left: 8.0),
                               title: Text(
                                 'Modes',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                               ),
                               children: modes.map((mode) {
                                 return ListTile(
@@ -1083,8 +1062,8 @@ Future<void> fetchNavigationTerms(String termId) async {
                                         builder: (context) =>
                                             TaxonomyDetailScreen(
                                           id: mode['termId'],
-                                          isEnglishUS: widget.isEnglishUS,
-                                          locale: widget.locale,
+                                          isEnglishUS: (currentLocale == 'EN'),
+                                          locale: currentLocale,
                                           isOffline: isAppOffline,
                                           siblings: widget.siblings
                                         ),
@@ -1104,8 +1083,8 @@ Future<void> fetchNavigationTerms(String termId) async {
             ),
             ),
             AllenAppFooter(
-              locale: widget.locale,
-              isEnglishUS: widget.isEnglishUS,
+              locale: currentLocale,
+              isEnglishUS: (currentLocale == 'EN'),
             ),
           ],
         )],
