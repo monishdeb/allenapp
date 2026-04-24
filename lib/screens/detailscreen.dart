@@ -60,6 +60,10 @@ class _TaxonomyDetailScreenState extends State<TaxonomyDetailScreen> {
   bool isAppOffline = false;
   String currentLocale = 'EN';
   String labelKey = 'title';
+  String? nextSiblingTerm;
+  String nextSiblingLabel = '';
+  String? prevSiblingTerm;
+  String prevSiblingLabel = '';
   final TextEditingController _controller = TextEditingController();
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -301,6 +305,32 @@ Future<void> fetchNavigationTerms(String termId) async {
       final String? chosenParentId = numericParentId ?? actualParentId;
       final String chosenParentLabel = numericParentId != null ? numericParentLabel : finalParentLabelFromMap;
 
+      // --- Sibling lookup for terms matching "[number] [HLM] [suffix]" pattern ---
+      String? siblingNextId;
+      String siblingNextLabel = '';
+      String? siblingPrevId;
+      String siblingPrevLabel = '';
+      try {
+        final parsedLabel = _parseTermLabel(termTitle);
+        if (parsedLabel != null) {
+          final siblings = await getSiblingTerms(currentTermId, termTitle);
+          final currentNum = parsedLabel['number'] as int;
+          for (var s in siblings) {
+            final n = s['number'] as int;
+            if (n > currentNum && siblingNextId == null) {
+              siblingNextId = s['id'] as String;
+              siblingNextLabel = fixLabel(s['label'] as String);
+            }
+            if (n < currentNum) {
+              siblingPrevId = s['id'] as String;
+              siblingPrevLabel = fixLabel(s['label'] as String);
+            }
+          }
+        }
+      } catch (e, st) {
+        debugPrint('sibling resolution error: $e\n$st');
+      }
+
       if (!mounted) return;
       setState(() {
         childTerm = nextChildTermId;
@@ -309,6 +339,10 @@ Future<void> fetchNavigationTerms(String termId) async {
         childLabel = finalChildLabel;
         parentLabel = chosenParentLabel;
         rootLabel = rootTitle;
+        nextSiblingTerm = siblingNextId;
+        nextSiblingLabel = siblingNextLabel;
+        prevSiblingTerm = siblingPrevId;
+        prevSiblingLabel = siblingPrevLabel;
       });
     }
   } catch (e, st) {
@@ -330,6 +364,120 @@ Future<void> fetchNavigationTerms(String termId) async {
 
   bool isSubPage(String pageTitle) {
     return (((pageTitle.contains('H') || pageTitle.contains('L')) && !pageTitle.endsWith('H') && !pageTitle.endsWith('L')) || '.'.allMatches(pageTitle).length >= 2);
+  }
+
+  /// Parses a term label into its components.
+  /// Handles space-separated format: "1 H 1", "2 L 1", "3 M 1"
+  /// Handles dot-separated format: "1.2.3"
+  Map<String, dynamic>? _parseTermLabel(String label) {
+    try {
+      final trimmed = label.trim();
+
+      // Pattern: "[number] [HLM] [suffix]" e.g. "1 H 1", "2 L 1", "3 M 1"
+      final RegExp spaceRegex = RegExp(r'^(\d+)\s+([HLM])\s+(\d+)$');
+      final spaceMatch = spaceRegex.firstMatch(trimmed);
+      if (spaceMatch != null) {
+        return {
+          'number': int.parse(spaceMatch.group(1)!),
+          'mode': spaceMatch.group(2)!,
+          'suffix': spaceMatch.group(3)!,
+        };
+      }
+
+      // Dot-separated pattern: "1.2.3"
+      final RegExp dotRegex = RegExp(r'^(\d+)\.(\d+)\.?(\d*)$');
+      final dotMatch = dotRegex.firstMatch(trimmed);
+      if (dotMatch != null) {
+        final group3 = dotMatch.group(3) ?? '';
+        return {
+          'number': int.parse(dotMatch.group(1)!),
+          'mode': 'DOT',
+          'suffix': group3.isNotEmpty ? '${dotMatch.group(2)!}.$group3' : dotMatch.group(2)!,
+        };
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('_parseTermLabel error: $e');
+      return null;
+    }
+  }
+
+  /// Returns all sibling terms that share the same mode and suffix as [termLabel]
+  /// but have a different numeric prefix.
+  Future<List<Map<String, dynamic>>> getSiblingTerms(String termId, String termLabel) async {
+    List<Map<String, dynamic>> siblings = [];
+    try {
+      final parsedCurrent = _parseTermLabel(termLabel);
+      if (parsedCurrent == null) {
+        return siblings;
+      }
+
+      final currentNum = parsedCurrent['number'] as int;
+      final mode = parsedCurrent['mode'] as String;
+      final suffix = parsedCurrent['suffix'] as String;
+
+      final allTerms = await Offline().getACLTaxonomy(null, null, db);
+      for (var term in allTerms) {
+        if ((term['vid'] ?? '') != 'allen_cognitive_levels') continue;
+        final tLabel = (term[labelKey] ?? '') as String;
+        final parsed = _parseTermLabel(tLabel);
+        if (parsed != null &&
+            parsed['mode'] == mode &&
+            parsed['suffix'] == suffix &&
+            parsed['number'] != currentNum) {
+          siblings.add({
+            'id': term['id'].toString(),
+            'label': tLabel,
+            'number': parsed['number'] as int,
+            'type': 'sibling',
+          });
+        }
+      }
+
+      siblings.sort((a, b) => (a['number'] as int).compareTo(b['number'] as int));
+      return siblings;
+    } catch (e, st) {
+      debugPrint('getSiblingTerms error: $e\n$st');
+      return siblings;
+    }
+  }
+
+  /// Returns the next sibling term (the sibling with the smallest number
+  /// greater than the current term's number).
+  Future<Map<String, dynamic>?> getNextSiblingTerm(String termId, String termLabel) async {
+    final siblings = await getSiblingTerms(termId, termLabel);
+    if (siblings.isEmpty) return null;
+
+    final parsed = _parseTermLabel(termLabel);
+    if (parsed == null) return null;
+
+    final currentNum = parsed['number'] as int;
+    for (var s in siblings) {
+      if ((s['number'] as int) > currentNum) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  /// Returns the previous sibling term (the sibling with the largest number
+  /// smaller than the current term's number).
+  Future<Map<String, dynamic>?> getPreviousSiblingTerm(String termId, String termLabel) async {
+    final siblings = await getSiblingTerms(termId, termLabel);
+    if (siblings.isEmpty) return null;
+
+    final parsed = _parseTermLabel(termLabel);
+    if (parsed == null) return null;
+
+    final currentNum = parsed['number'] as int;
+    Map<String, dynamic>? result;
+    for (var s in siblings) {
+      if ((s['number'] as int) < currentNum) {
+        result = s;
+      }
+    }
+    return result;
   }
 
   // queries for the content nodes associated with the current taxonomy term
@@ -671,6 +819,28 @@ Future<void> fetchNavigationTerms(String termId) async {
       leadingActions.add(back!);
     }
 
+    if (prevSiblingTerm != null) {
+      leadingActions.add(GestureDetector(
+        onTap: () => handleMenuClick(prevSiblingTerm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+          child: ArrowLabel(
+            color: Color.fromRGBO(213, 31, 39, 1),
+            child: Text(
+              prevSiblingLabel,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 23,
+                backgroundColor: Color.fromRGBO(255, 0, 0, 1),
+                height: 1.3,
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+
 
     if (rootTermPresent && parentTermPresent) {
        leadingWidgets.add(SizedBox(width: 20));
@@ -745,6 +915,30 @@ Future<void> fetchNavigationTerms(String termId) async {
               ),
             )
          )
+      ));
+    }
+
+    if (nextSiblingTerm != null) {
+      actions.add(GestureDetector(
+        onTap: () => handleMenuClick(nextSiblingTerm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+          child: ArrowLabel(
+            arrowDirection: TagArrowDirection.right,
+            color: Color.fromRGBO(208, 0, 0, 1),
+            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            child: Text(
+              nextSiblingLabel,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 23,
+                backgroundColor: Color.fromRGBO(255, 0, 0, 1),
+                height: 1.3,
+              ),
+            ),
+          ),
+        ),
       ));
     }
 
