@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'auth.dart';
+import 'device_service.dart';
 import 'package:http/http.dart' as http;
 import '../Env.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -28,6 +29,7 @@ class Offline {
           await db.execute('CREATE TABLE taxonomy_node (id INTEGER PRIMARY KEY, taxonomy_id INTEGER, node_id INTEGER, langcode TEXT)');
           await db.execute('CREATE TABLE notes (id INTEGER PRIMARY KEY, user_id INTEGER, node_id INTEGER, note TEXT, selected_text TEXT, start_position INTEGER, end_position INTEGER, is_synced INTEGER, upstream_id, INTEGER, current INTEGER)');
           await db.execute('CREATE TABLE activity_decision (id INTEGER PRIMARY KEY, node_id INTEGER, decision_labels TEXT, decision_targets TEXT, decision_taxonomy_ids TEXT, decision_body TEXT, last_updated INTEGER, langcode TEXT, current INTEGER)');
+          await db.execute('CREATE TABLE device_cache (key TEXT PRIMARY KEY, value TEXT)');
         });
       },
       onOpen: (Database db) async {
@@ -433,6 +435,35 @@ class Offline {
 
   Future offlineDatabaseExists() async {
     return await databaseExists(join(await getDatabasesPath(), 'allen_app.db'));
+  }
+
+  /// Caches the current device info (id, type, threshold) into the local DB
+  /// so that offline sessions can reference device data without network access.
+  Future<void> cacheDeviceInfo(Database? db) async {
+    if (db == null) return;
+    final deviceService = DeviceService();
+    final entries = {
+      'device_id': deviceService.deviceId ?? '',
+      'device_type': deviceService.deviceType ?? '',
+      'device_threshold': deviceService.deviceThreshold.toString(),
+    };
+    for (final entry in entries.entries) {
+      await db.insert(
+        'device_cache',
+        {'key': entry.key, 'value': entry.value},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  /// Returns a map of cached device info from the local DB.
+  Future<Map<String, String>> getCachedDeviceInfo(Database? db) async {
+    if (db == null) return {};
+    final rows = await db.query('device_cache');
+    return {
+      for (final row in rows)
+        row['key'] as String: row['value'] as String,
+    };
   }
 
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'services/AllenAppLifeCycleDisplay.dart';
+import 'services/device_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DeviceService().init();
   runApp(const AllenApp());
 }
 

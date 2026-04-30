@@ -4,6 +4,7 @@ import '../screens/cf.dart';
 import '../screens/acls6.dart';
 import '../screens/search.dart';
 import '../screens/home.dart';
+import '../screens/device_management_screen.dart';
 
 class LeftNavDrawer extends StatelessWidget {
   final String locale;
@@ -156,6 +157,24 @@ class LeftNavDrawer extends StatelessWidget {
             },
           ),
           const Divider(height: 1),
+          if (currentScreen != 'device_management') ...[
+            ListTile(
+              title: const Text(
+                'Device Management',
+                style: TextStyle(fontSize: 16),
+              ),
+              trailing: const Icon(Icons.devices, size: 16),
+              onTap: () => _navigate(
+                context,
+                DeviceManagementScreen(
+                  isEnglishUS: isEnglishUS,
+                  locale: locale,
+                  isOffline: isOffline,
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+          ],
         ],
       )),
     ));
