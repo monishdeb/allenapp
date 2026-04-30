@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import '../Env.dart';
 import 'Offline.dart';
+import 'device_service.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'query.dart';
@@ -86,6 +87,8 @@ Future<void> setOfflineStatus(bool offlineStatus, bool rebuildDatabase) async {
   if (offlineStatus) {
     var database = await Offline().initDatabase(rebuildDatabase);
     db = database;
+    // Cache device info for use during offline sessions.
+    await Offline().cacheDeviceInfo(database);
   }
   else {
     if (db != null) {
@@ -163,7 +166,41 @@ Future<Map<String, String>?> authenticateUser(userName, password) async {
   final refresh_token = token_response['refresh_token'] as String;
   final expires_in = (DateTime.now().millisecondsSinceEpoch + Duration(seconds: token_response['expires_in']).inMilliseconds);
   final return_values = <String, String>{'access_token': access_token, 'refresh_token': refresh_token, 'expires_in': expires_in.toString()};
+
+  // Register the device with the Drupal backend after a successful login.
+  unawaited(_registerDevice(access_token));
+
   return Map<String, String>.from(return_values);
+}
+
+/// Registers this device with the Drupal backend using the given access token.
+Future<void> _registerDevice(String accessToken) async {
+  final deviceId = DeviceService().deviceId;
+  final deviceType = DeviceService().deviceType;
+  if (deviceId == null || deviceId.isEmpty) return;
+  try {
+    final response = await http.post(
+      Uri.parse('https://$drupalDomain/api/device/register'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'device_id': deviceId,
+        'device_type': deviceType ?? 'unknown',
+      }),
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final threshold = body['device_threshold'];
+      if (threshold != null) {
+        await DeviceService().setDeviceThreshold(
+            int.tryParse(threshold.toString()) ?? 3);
+      }
+    }
+  } catch (_) {
+    // Registration failure is non-fatal; app continues normally.
+  }
 }
 
 Future<String?> getNewToken() async {
@@ -185,6 +222,10 @@ Future<String?> getNewToken() async {
   saveToken(refresh_token, 'refresh_token');
   final expires_in = (DateTime.now().millisecondsSinceEpoch + Duration(seconds: token_response['expires_in']).inMilliseconds);
   saveToken(expires_in.toString(), 'expires_in');
+
+  // Re-register the device after a successful token refresh.
+  unawaited(_registerDevice(access_token));
+
   return access_token;
 }
 

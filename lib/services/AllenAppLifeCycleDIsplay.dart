@@ -7,6 +7,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'auth.dart';
+import 'device_revalidation_service.dart';
 
 class AllenAppLifeCycleDisplay extends StatefulWidget {
   const AllenAppLifeCycleDisplay({super.key});
@@ -38,6 +39,10 @@ class _AllenAppLifeCycleDisplayState extends State<AllenAppLifeCycleDisplay> {
   }
 
   void checkToNavigateToHome() async {
+    // Revalidate device session when the app returns to the foreground.
+    final deviceValid = await DeviceRevalidationService().revalidate();
+    if (!deviceValid) return;
+
     int? last_pin_request = await getLastPinCodeRequest();
     if (!kIsWeb && (Platform.isAndroid || Platform.isLinux)) {
       navigatorKey.currentState?.pushNamed('/', arguments: {'forceLogin': false});
